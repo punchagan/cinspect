@@ -6,7 +6,7 @@ SOURCE_DIR = expanduser(os.getenv('PY_SOURCE_DIR', '~/software/random/cpython'))
 import inspect
 
 class InspectObject(object):
-    """ A dumb wrapper around the object we are trying to inspect. """
+    """ A simple wrapper around the object we are trying to inspect. """
 
     def __init__(self, obj):
         self.obj = obj
@@ -84,12 +84,28 @@ class MethodDescriptor(BuiltinMethod):
         return self.obj.__objclass__.__name__
 
 
+class Module(object):
+
+    def __init__(self, obj):
+        self.obj = obj
+
+    def getfile(self):
+        path = join(SOURCE_DIR, 'Modules', '%smodule.c' % self.obj.__name__)
+        if not exists(path):
+            raise Exception('Could not find source file - %s!' % path)
+
+        return path
+
+    def getpatterns(self):
+        yield '[\s\S]+'
+
+
 def get_inspect_object(obj):
     """ Returns the object wrapped in the appropriate InspectObject class. """
 
     try:
-        inspect.getfile(obj)
-    except TypeError:
+        inspect.getsource(obj)
+    except (TypeError, IOError) as e:
         # The code to deal with this case is below
         pass
     else:
@@ -106,6 +122,9 @@ def get_inspect_object(obj):
 
     elif inspect.ismethoddescriptor(obj):
         return MethodDescriptor(obj)
+
+    elif inspect.ismodule(obj):
+        return Module(obj)
 
     else:
         raise NotImplementedError

@@ -1,7 +1,9 @@
 import inspect
 import unittest
+import gc
 
 from scratch import *
+
 
 class TestGetSource(unittest.TestCase):
 
@@ -25,11 +27,21 @@ class TestGetSource(unittest.TestCase):
 
     def test_should_get_source_for_compiled_method(self):
         # Given
-        import gc
         function = gc.collect
 
         # When/Then
         self.assertPyMethodDef(getsource(function))
+
+    def test_should_get_source_for_module(self):
+        # Given
+        module = gc
+
+        # When
+        source = getsource(module)
+
+        # Then
+        self.assertGreaterEqual(len(source.splitlines()), 1)
+        self.assertIn('Reference Cycle Garbage Collection', source)
 
     #### Assertions ###########################################################
 
