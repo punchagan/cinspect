@@ -23,18 +23,30 @@ class InspectObject(object):
 class PythonObject(InspectObject):
     pass
 
+
 class BuiltinFunction(InspectObject):
     def getfile(self):
-        return join(SOURCE_DIR, 'Python', 'bltinmodule.c')
+        if self.module == '__builtin__':
+            path = ('Python', 'bltinmodule.c')
+
+        else:
+            path = ('Modules', '%smodule.c' % self.module)
+
+        return join(SOURCE_DIR, *path)
+
+    @property
+    def module(self):
+        return self.obj.__module__
 
     def getpatterns(self):
-        function_name = 'builtin_%s' % self.obj.__name__
+        function_name = '%s_%s' % (self.module.strip('_'), self.obj.__name__)
         pattern = (
             'static PyObject\s*\*\s*'
             '%s\s*\(.*?\)\s*?\n{[\s\S]*?\n}' % function_name
         )
 
         yield pattern
+
 
 class BuiltinMethod(InspectObject):
     def getfile(self):
@@ -84,15 +96,13 @@ def get_inspect_object(obj):
         return PythonObject(obj)
 
     if inspect.isbuiltin(obj):
-        if map.__module__ == obj.__module__:
-            # functions like map, reduce, len, ...
-            return BuiltinFunction(obj)
-        elif obj.__module__ is None:
+        if obj.__module__ is None:
             # fixme: we could possibly check in `types` to see if it's really a
             # built-in...
             return BuiltinMethod(obj)
         else:
-            raise NotImplementedError
+            # Any builtin/compiled functions ...
+            return BuiltinFunction(obj)
 
     elif inspect.ismethoddescriptor(obj):
         return MethodDescriptor(obj)
