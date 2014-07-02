@@ -2,7 +2,7 @@ import inspect
 import unittest
 import gc
 
-from scratch import *
+from cinspect import getsource
 
 
 class TestGetSource(unittest.TestCase):
