@@ -5,6 +5,8 @@ SOURCE_DIR = expanduser(os.getenv('PY_SOURCE_DIR', '~/software/random/cpython'))
 
 import inspect
 
+igetsource = inspect.getsource  # hack to allow patching in, inside IPython
+
 class InspectObject(object):
     """ A simple wrapper around the object we are trying to inspect. """
 
@@ -104,7 +106,7 @@ def get_inspect_object(obj):
     """ Returns the object wrapped in the appropriate InspectObject class. """
 
     try:
-        inspect.getsource(obj)
+        igetsource(obj)
     except (TypeError, IOError) as e:
         # The code to deal with this case is below
         pass
@@ -141,15 +143,19 @@ def getsource(obj):
     if not isinstance(obj, InspectObject):
         obj = get_inspect_object(obj)
 
-    with open(obj.getfile()) as f:
-        full_source = f.read()
+    if isinstance(obj, PythonObject):
+        source = igetsource(obj.obj)
 
-    for pattern in obj.getpatterns():
-        matches = re.findall(pattern, full_source)
-        if len(matches) == 1:
-            source = matches[0]
-            break
     else:
-        raise Exception('Too few or too many definitions...')
+        with open(obj.getfile()) as f:
+            full_source = f.read()
+
+        for pattern in obj.getpatterns():
+            matches = re.findall(pattern, full_source)
+            if len(matches) == 1:
+                source = matches[0]
+                break
+        else:
+            raise Exception('Too few or too many definitions...')
 
     return source
