@@ -92,8 +92,12 @@ class Module(object):
         self.obj = obj
 
     def getfile(self):
-        path = join(SOURCE_DIR, 'Modules', '%smodule.c' % self.obj.__name__)
-        if not exists(path):
+        names = ['%smodule.c', '%s.c']
+        for name in names:
+            path = join(SOURCE_DIR, 'Modules', name % self.obj.__name__)
+            if exists(path):
+                break
+        else:
             raise Exception('Could not find source file - %s!' % path)
 
         return path

@@ -1,8 +1,11 @@
 import inspect
 import unittest
-import gc
 
 from cinspect import getsource
+
+# Imports for testing
+import gc
+import audioop
 
 
 class TestGetSource(unittest.TestCase):
@@ -42,6 +45,17 @@ class TestGetSource(unittest.TestCase):
         # Then
         self.assertGreaterEqual(len(source.splitlines()), 1)
         self.assertIn('Reference Cycle Garbage Collection', source)
+
+    def test_should_get_source_for_module_with_longname(self):
+        # Given
+        module = audioop
+
+        # When
+        source = getsource(module)
+
+        # Then
+        self.assertGreaterEqual(len(source.splitlines()), 1)
+        self.assertIn('peak values', source)
 
     #### Assertions ###########################################################
 
