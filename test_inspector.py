@@ -23,6 +23,14 @@ class TestGetSource(unittest.TestCase):
             # When/Then
             self.assertPyMethodDef(getsource(function))
 
+    def test_should_get_source_for_compiled_method(self):
+        # Given
+        import gc
+        function = gc.collect
+
+        # When/Then
+        self.assertPyMethodDef(getsource(function))
+
     #### Assertions ###########################################################
 
     def assertPyMethodDef(self, source):
