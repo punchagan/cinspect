@@ -1,3 +1,8 @@
+""" A startup script for IPython to patch it to 'inspect' using cinspect. """
+
+# Place this file in ~/.ipython/<PROFILE_DIR>/startup to patch your IPython to
+# use cinspect for the code inspection.
+
 import inspect
 
 from cinspect import getsource, getfile
