@@ -6,19 +6,16 @@ def get_pymethod_def_mapping(cursor):
     mapping = {}
 
     def py_method_def_visitor(cursor, parent=None):
-        if cursor.is_definition() and cursor.kind == clang.cindex.CursorKind.VAR_DECL:
+        if cursor.kind == clang.cindex.CursorKind.VAR_DECL:
             children = list(cursor.get_children())
+
             if len(children) > 0 and children[0].displayname == 'PyMethodDef':
-                children = list(cursor.get_children())
                 assert len(children) == 2
-                for child in children[1].get_children():
-                    for kind in [clang.cindex.CursorKind.STRING_LITERAL, clang.cindex.CursorKind.DECL_REF_EXPR]:
-                        foo = search_cursor_kind(child, kind)
-                        # print [token.spelling for token in foo.get_tokens()], kind, 'xxxxxxx'
-                        mapping[1] = foo
-                        if foo is not None:
-                            print foo.spelling, kind, len(list(foo.get_children()))
-                            print [(c.spelling, c.kind) for c in foo.get_children()]
+
+                for entry in python_object_from_cursor_by_kind(children[1]):
+                    if len(entry) == 4:
+                        py_name, c_name, _, _ = entry
+                        mapping[eval(py_name)] = c_name
 
         for child in cursor.get_children():
             py_method_def_visitor(child, cursor)
@@ -28,15 +25,33 @@ def get_pymethod_def_mapping(cursor):
     return mapping
 
 
-def search_cursor_kind(cursor, kind):
-    if cursor.kind == kind:
-        return cursor
+def python_object_from_cursor_by_kind(cursor):
+    """ Return a Python object based on the kind of the cursor.
+
+    Recursively, manipulates all the objects contained within.
+
+    """
+
+    if cursor.kind == clang.cindex.CursorKind.INIT_LIST_EXPR:
+        obj = [
+            python_object_from_cursor_by_kind(c) for c in cursor.get_children()
+        ]
+
+    elif cursor.kind == clang.cindex.CursorKind.CSTYLE_CAST_EXPR:
+        obj = list(cursor.get_children())[-1].displayname
+
+    elif cursor.kind == clang.cindex.CursorKind.UNEXPOSED_EXPR:
+        children = list(cursor.get_children())
+        assert len(children) == 1
+        obj = python_object_from_cursor_by_kind(children[0])
+
+    elif cursor.kind == clang.cindex.CursorKind.STRING_LITERAL:
+        obj = cursor.get_tokens().next().spelling
+
     else:
-        for child in cursor.get_children():
-            if search_cursor_kind(child, kind) is not None:
-                return child
+        obj = None
 
-
+    return obj
 
 
 if __name__ == '__main__':
