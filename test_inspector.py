@@ -93,8 +93,8 @@ class TestGetSource(unittest.TestCase):
             for kls in (list, set, dict)
             for method_name in dir(kls())
 
-            # fixme: fix code to work for dict.view*
-            if not method_name.startswith(('_', 'view'))
+            # fixme: fix code to work for [].__add__
+            if not method_name.startswith('_')
         ]
 
 
