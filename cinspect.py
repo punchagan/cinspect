@@ -11,27 +11,18 @@ igetsource = inspect.getsource  # hack to allow patching in, inside IPython
 class InspectObject(object):
     """ A simple wrapper around the object we are trying to inspect. """
 
-    use_clang = False
-
     def __init__(self, obj):
         self.obj = obj
 
     def getfile(self):
         return inspect.getfile(self.obj)
 
-    # fixme: we should ideally be returning only one pattern, by looking up the
-    # PyMethodDef mapping, but for now, we follow a heuristic, and return
-    # multiple possible patterns. Hence the name, getpatterns!
-    def getpatterns(self):
-        raise NotImplementedError
 
 class PythonObject(InspectObject):
     pass
 
 
 class BuiltinFunction(InspectObject):
-
-    use_clang = True
 
     def getfile(self):
         if self.module == '__builtin__':
@@ -46,19 +37,8 @@ class BuiltinFunction(InspectObject):
     def module(self):
         return self.obj.__module__
 
-    def getpatterns(self):
-        function_name = '%s_%s' % (self.module.strip('_'), self.obj.__name__)
-        pattern = (
-            'static PyObject\s*\*\s*'
-            '%s\s*\(.*?\)\s*?\n{[\s\S]*?\n}' % function_name
-        )
-
-        yield pattern
-
 
 class BuiltinMethod(InspectObject):
-
-    use_clang = True
 
     def getfile(self):
         path = join(SOURCE_DIR, 'Objects', '%sobject.c' % self.type_name)
@@ -66,16 +46,6 @@ class BuiltinMethod(InspectObject):
             raise Exception('Could not find source file - %s!' % path)
 
         return path
-
-    def getpatterns(self):
-        for name_pattern in ('%s%s', '%s_%s'):
-            function_name = name_pattern % (self.type_name, self.obj.__name__)
-            pattern = (
-                'static PyObject\s*\*\s*'
-                '%s\s*\(.*?\)\s*?\n{[\s\S]*?\n}' % function_name
-            )
-
-            yield pattern
 
     @property
     def type_name(self):
@@ -90,6 +60,7 @@ class BuiltinMethod(InspectObject):
 
 
 class MethodDescriptor(BuiltinMethod):
+
     @property
     def type_name(self):
         return self.obj.__objclass__.__name__
@@ -110,9 +81,6 @@ class Module(InspectObject):
             raise Exception('Could not find source file - %s!' % path)
 
         return path
-
-    def getpatterns(self):
-        yield '[\s\S]+'
 
 
 def get_inspect_object(obj):
@@ -163,17 +131,9 @@ def getsource(obj):
         with open(obj.getfile()) as f:
             full_source = f.read()
 
-        if obj.use_clang:
-            source = get_code_from_file(obj.getfile(), obj.obj.__name__)
-
+        if isinstance(obj, Module):
+            source = get_code_from_file(obj.getfile(), None)
         else:
-            for pattern in obj.getpatterns():
-                matches = re.findall(pattern, full_source)
-                if len(matches) == 1:
-                    source = matches[0]
-                    break
-            else:
-                print len(matches), pattern
-                raise Exception('Too few or too many definitions...')
+            source = get_code_from_file(obj.getfile(), obj.obj.__name__)
 
     return source

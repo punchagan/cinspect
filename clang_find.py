@@ -127,8 +127,15 @@ def get_code_from_file(path, py_name):
     """ Return the C-code of a function given it's py_name, and a path. """
 
     tu = get_cursor_for_file(path)
-    mapping = get_pymethod_def_mapping(tu.cursor)
-    return get_code_for_function(tu.cursor, mapping[py_name])
+    if py_name is not None:
+        mapping = get_pymethod_def_mapping(tu.cursor)
+        code = get_code_for_function(tu.cursor, mapping[py_name])
+    else:
+        # fixme: this needs to be cleaned up when we add support for objects!
+        with open(path) as f:
+            code = f.read()
+
+    return code
 
 
 if __name__ == '__main__':
