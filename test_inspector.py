@@ -57,6 +57,19 @@ class TestGetSource(unittest.TestCase):
         self.assertGreaterEqual(len(source.splitlines()), 1)
         self.assertIn('peak values', source)
 
+    def test_should_get_source_for_type(self):
+        # Given
+        types = list, dict, set
+
+        # Given
+        for t in types:
+            # When/Then
+            source = getsource(t)
+            name = t.__name__
+            self.assertIn('PyTypeObject Py%s_Type' % name.capitalize(), source)
+            self.assertIn('"%s"' % name, source)
+
+
     #### Assertions ###########################################################
 
     def assertPyMethodDef(self, source):

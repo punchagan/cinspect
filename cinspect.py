@@ -68,9 +68,6 @@ class MethodDescriptor(BuiltinMethod):
 
 class Module(InspectObject):
 
-    def __init__(self, obj):
-        self.obj = obj
-
     def getfile(self):
         names = ['%smodule.c', '%s.c']
         for name in names:
@@ -78,6 +75,15 @@ class Module(InspectObject):
             if exists(path):
                 break
         else:
+            raise Exception('Could not find source file - %s!' % path)
+
+        return path
+
+class Type(InspectObject):
+
+    def getfile(self):
+        path = join(SOURCE_DIR, 'Objects', '%sobject.c' % self.obj.__name__)
+        if not exists(path):
             raise Exception('Could not find source file - %s!' % path)
 
         return path
@@ -109,6 +115,9 @@ def get_inspect_object(obj):
     elif inspect.ismodule(obj):
         return Module(obj)
 
+    elif inspect.isclass(obj):
+        return Type(obj)
+
     else:
         raise NotImplementedError
 
@@ -132,7 +141,11 @@ def getsource(obj):
             full_source = f.read()
 
         if isinstance(obj, Module):
-            source = get_code_from_file(obj.getfile(), None)
+            source = get_code_from_file(obj.getfile(), None, 'module')
+        elif isinstance(obj, Type):
+            source = get_code_from_file(
+                obj.getfile(), obj.obj.__name__, 'class'
+            )
         else:
             source = get_code_from_file(obj.getfile(), obj.obj.__name__)
 

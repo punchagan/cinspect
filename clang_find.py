@@ -12,7 +12,7 @@ def get_pymethod_def_mapping(cursor):
 
     mapping = {}
 
-    def py_method_def_visitor(cursor, parent=None):
+    def visitor(cursor):
         if cursor.kind == clang.cindex.CursorKind.VAR_DECL:
             children = list(cursor.get_children())
 
@@ -25,9 +25,30 @@ def get_pymethod_def_mapping(cursor):
                         mapping[eval(py_name)] = c_name
 
         for child in cursor.get_children():
-            py_method_def_visitor(child, cursor)
+            visitor(child)
 
-    py_method_def_visitor(cursor)
+    visitor(cursor)
+
+    return mapping
+
+
+def get_type_object_mapping(cursor):
+    """ Visits all PyTypeObject nodes and returns a mapping of name to cursors. """
+
+    mapping = {}
+
+    def visitor(cursor):
+        if cursor.kind == clang.cindex.CursorKind.VAR_DECL:
+            children = list(cursor.get_children())
+
+            if len(children) > 1 and children[0].displayname == 'PyTypeObject':
+                parsed_definition = python_object_from_cursor_by_kind(children[1])
+                mapping[eval(parsed_definition[3])] = cursor
+
+        for child in cursor.get_children():
+            visitor(child)
+
+    visitor(cursor)
 
     return mapping
 
@@ -82,8 +103,13 @@ def python_object_from_cursor_by_kind(cursor):
 
     elif cursor.kind == clang.cindex.CursorKind.UNEXPOSED_EXPR:
         children = list(cursor.get_children())
-        assert len(children) == 1
-        obj = python_object_from_cursor_by_kind(children[0])
+        if len(children) > 1:
+            obj = [
+                python_object_from_cursor_by_kind(c) for c in children
+            ]
+
+        else:
+            obj = python_object_from_cursor_by_kind(children[0])
 
     elif cursor.kind == clang.cindex.CursorKind.STRING_LITERAL:
         obj = cursor.get_tokens().next().spelling
@@ -123,15 +149,24 @@ def get_cursor_for_file(path):
     return tu
 
 
-def get_code_from_file(path, py_name):
+def get_code_from_file(path, py_name, object_type='file'):
     """ Return the C-code of a function given it's py_name, and a path. """
 
     tu = get_cursor_for_file(path)
-    if py_name is not None:
+    if object_type == 'file':
         mapping = get_pymethod_def_mapping(tu.cursor)
         code = get_code_for_function(tu.cursor, mapping[py_name])
-    else:
-        # fixme: this needs to be cleaned up when we add support for objects!
+
+    elif object_type == 'class':
+        mapping = get_type_object_mapping(tu.cursor)
+        # fixme: function -> class
+        cursor = mapping.get(py_name, None)
+        if cursor is not None:
+            code = get_code_from_cursor(cursor)
+        else:
+            code = None
+
+    elif object_type == 'module':
         with open(path) as f:
             code = f.read()
 
@@ -141,4 +176,5 @@ def get_code_from_file(path, py_name):
 if __name__ == '__main__':
     import sys
     path, py_name = sys.argv[1:3]
-    print get_code_from_file(path, py_name)
+    # print get_code_from_file(path, py_name)
+    print get_code_from_file(path, 'dict', 'class')
