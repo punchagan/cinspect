@@ -1,3 +1,10 @@
+# FIXME:
+
+# - Clean up the API.  Too many functions thrown around.
+
+# - Add some sort of caching.  The tests for inspection jumped up an ordere of
+# magnitude, by shifting to using clang from regexes.
+
 import clang.cindex
 
 def get_pymethod_def_mapping(cursor):
@@ -25,6 +32,39 @@ def get_pymethod_def_mapping(cursor):
     return mapping
 
 
+def get_code_for_function(cursor, name):
+    """ Return the code for a function with the given name given a cursor.
+
+    """
+
+    def visitor(cursor, parent=None):
+        if cursor.kind == clang.cindex.CursorKind.FUNCTION_DECL:
+            if cursor.spelling == name:
+                return get_code_from_cursor(cursor)
+
+        for child in cursor.get_children():
+            code = visitor(child, cursor)
+            if code is not None:
+                return code
+
+    return visitor(cursor)
+
+
+def get_code_from_cursor(cursor):
+    """ Return a string with the code, given a cursor object. """
+
+    start, end = cursor.extent.begin_int_data, cursor.extent.end_int_data
+
+    with open(cursor.location.file.name) as f:
+        # fixme: I have no idea why we are being offset by 2.
+        # Offset of 1, could be because the marker is after the first char,
+        # another offset of 1 could be because the indexing starts from 1?
+        f.read(start-2)
+        text = f.read(end-start)
+
+    return text
+
+# fixme: this isn't really returning a python object for everything..
 def python_object_from_cursor_by_kind(cursor):
     """ Return a Python object based on the kind of the cursor.
 
@@ -48,17 +88,24 @@ def python_object_from_cursor_by_kind(cursor):
     elif cursor.kind == clang.cindex.CursorKind.STRING_LITERAL:
         obj = cursor.get_tokens().next().spelling
 
+    elif cursor.kind == clang.cindex.CursorKind.DECL_REF_EXPR:
+        obj = cursor.get_tokens().next().spelling
+
     else:
         obj = None
 
     return obj
 
 
-if __name__ == '__main__':
-    import sys
-    path = sys.argv[1]
+def get_cursor_for_file(path):
+    """ Returns a cursor object, given the path to a file.
+
+    Raises a RuntimeError if the file couldn't be parsed, without errors.
+
+    """
+
+    # fixme: my specific paths.
     extra_args = [
-        '-v',
         '-I/usr/lib/clang/3.5/include',
         '-I/home/punchagan/software/random/cpython/Include',
         '-I/home/punchagan/software/random/cpython/'
@@ -66,12 +113,25 @@ if __name__ == '__main__':
 
     index = clang.cindex.Index.create()
     tu = index.parse(path, args=extra_args)
-
     diagnostics = list(tu.diagnostics)
+
     if len(diagnostics) > 0:
-        print 'There were parse errors'
         import pprint
         pprint.pprint(diagnostics)
-    else:
-        c = get_pymethod_def_mapping(tu.cursor)
-        print c
+        raise RuntimeError('There were parse errors')
+
+    return tu
+
+
+def get_code_from_file(path, py_name):
+    """ Return the C-code of a function given it's py_name, and a path. """
+
+    tu = get_cursor_for_file(path)
+    mapping = get_pymethod_def_mapping(tu.cursor)
+    return get_code_for_function(tu.cursor, mapping[py_name])
+
+
+if __name__ == '__main__':
+    import sys
+    path, py_name = sys.argv[1:3]
+    print get_code_from_file(path, py_name)

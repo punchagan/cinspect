@@ -4,11 +4,14 @@ from os.path import expanduser, exists, join
 SOURCE_DIR = expanduser(os.getenv('PY_SOURCE_DIR', '~/software/random/cpython'))
 
 import inspect
+from clang_find import get_code_from_file
 
 igetsource = inspect.getsource  # hack to allow patching in, inside IPython
 
 class InspectObject(object):
     """ A simple wrapper around the object we are trying to inspect. """
+
+    use_clang = False
 
     def __init__(self, obj):
         self.obj = obj
@@ -27,6 +30,9 @@ class PythonObject(InspectObject):
 
 
 class BuiltinFunction(InspectObject):
+
+    use_clang = True
+
     def getfile(self):
         if self.module == '__builtin__':
             path = ('Python', 'bltinmodule.c')
@@ -51,6 +57,9 @@ class BuiltinFunction(InspectObject):
 
 
 class BuiltinMethod(InspectObject):
+
+    use_clang = True
+
     def getfile(self):
         path = join(SOURCE_DIR, 'Objects', '%sobject.c' % self.type_name)
         if not exists(path):
@@ -86,7 +95,7 @@ class MethodDescriptor(BuiltinMethod):
         return self.obj.__objclass__.__name__
 
 
-class Module(object):
+class Module(InspectObject):
 
     def __init__(self, obj):
         self.obj = obj
@@ -154,12 +163,17 @@ def getsource(obj):
         with open(obj.getfile()) as f:
             full_source = f.read()
 
-        for pattern in obj.getpatterns():
-            matches = re.findall(pattern, full_source)
-            if len(matches) == 1:
-                source = matches[0]
-                break
+        if obj.use_clang:
+            source = get_code_from_file(obj.getfile(), obj.obj.__name__)
+
         else:
-            raise Exception('Too few or too many definitions...')
+            for pattern in obj.getpatterns():
+                matches = re.findall(pattern, full_source)
+                if len(matches) == 1:
+                    source = matches[0]
+                    break
+            else:
+                print len(matches), pattern
+                raise Exception('Too few or too many definitions...')
 
     return source
