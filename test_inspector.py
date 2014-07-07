@@ -69,6 +69,16 @@ class TestGetSource(unittest.TestCase):
             self.assertIn('PyTypeObject Py%s_Type' % name.capitalize(), source)
             self.assertIn('"%s"' % name, source)
 
+    @unittest.skip('Not implemented, yet')
+    def test_should_get_source_for_instance_of_a_type(self):
+        # Given
+        objects = [], {}, set([])
+
+        # Given
+        for obj in objects:
+            # When/Then
+            source = getsource(obj)
+            print source
 
     #### Assertions ###########################################################
 
