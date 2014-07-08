@@ -26,13 +26,17 @@ def get_pymethod_def_mapping(cursor):
         if get_kind(cursor) == clang.cindex.CursorKind.VAR_DECL:
             children = list(cursor.get_children())
 
-            if len(children) > 0 and children[0].displayname == 'PyMethodDef':
-                assert len(children) == 2
+            if len(children) > 1 and children[0].displayname == 'PyMethodDef':
+                if children[1].kind == clang.cindex.CursorKind.INIT_LIST_EXPR:
+                    for entry in python_object_from_cursor_by_kind(children[1]):
+                        if entry is not None and len(entry) == 4:
+                            py_name, c_name, _, _ = entry
 
-                for entry in python_object_from_cursor_by_kind(children[1]):
-                    if len(entry) == 4:
-                        py_name, c_name, _, _ = entry
-                        mapping[eval(py_name)] = c_name
+                            if (isinstance(py_name, basestring) and
+                                py_name.startswith('"') and
+                                py_name.endswith('"')):
+
+                                mapping[eval(py_name)] = c_name
 
         for child in cursor.get_children():
             visitor(child)
