@@ -7,13 +7,23 @@
 
 import clang.cindex
 
+
+# fixme: what's going on here?
+def get_kind(cursor):
+    """ There are unknown cursor kinds! Why?! """
+    try:
+        return cursor.kind
+    except ValueError:
+        return None
+
+
 def get_pymethod_def_mapping(cursor):
     """ Visits all PyMethodDef nodes and returns a unified mapping. """
 
     mapping = {}
 
     def visitor(cursor):
-        if cursor.kind == clang.cindex.CursorKind.VAR_DECL:
+        if get_kind(cursor) == clang.cindex.CursorKind.VAR_DECL:
             children = list(cursor.get_children())
 
             if len(children) > 0 and children[0].displayname == 'PyMethodDef':
@@ -38,12 +48,15 @@ def get_type_object_mapping(cursor):
     mapping = {}
 
     def visitor(cursor):
-        if cursor.kind == clang.cindex.CursorKind.VAR_DECL:
+        if get_kind(cursor) == clang.cindex.CursorKind.VAR_DECL:
             children = list(cursor.get_children())
 
             if len(children) > 1 and children[0].displayname == 'PyTypeObject':
                 parsed_definition = python_object_from_cursor_by_kind(children[1])
-                mapping[eval(parsed_definition[3])] = cursor
+                if parsed_definition is not None and len(parsed_definition) >= 4:
+                    name = parsed_definition[3]
+                    if isinstance(name, basestring) and name.startswith('"') and name.endswith('"'):
+                        mapping[eval(name)] = cursor
 
         for child in cursor.get_children():
             visitor(child)
@@ -59,7 +72,7 @@ def get_code_for_function(cursor, name):
     """
 
     def visitor(cursor, parent=None):
-        if cursor.kind == clang.cindex.CursorKind.FUNCTION_DECL:
+        if get_kind(cursor) == clang.cindex.CursorKind.FUNCTION_DECL:
             if cursor.spelling == name:
                 return get_code_from_cursor(cursor)
 
@@ -93,29 +106,41 @@ def python_object_from_cursor_by_kind(cursor):
 
     """
 
-    if cursor.kind == clang.cindex.CursorKind.INIT_LIST_EXPR:
+    cursor_kind = get_kind(cursor)
+
+    if cursor_kind is None:
+        obj = None
+
+    elif cursor_kind == clang.cindex.CursorKind.INIT_LIST_EXPR:
         obj = [
             python_object_from_cursor_by_kind(c) for c in cursor.get_children()
         ]
 
-    elif cursor.kind == clang.cindex.CursorKind.CSTYLE_CAST_EXPR:
+    elif cursor_kind == clang.cindex.CursorKind.CSTYLE_CAST_EXPR:
         obj = list(cursor.get_children())[-1].displayname
 
-    elif cursor.kind == clang.cindex.CursorKind.UNEXPOSED_EXPR:
+    elif cursor_kind == clang.cindex.CursorKind.UNEXPOSED_EXPR:
         children = list(cursor.get_children())
         if len(children) > 1:
             obj = [
                 python_object_from_cursor_by_kind(c) for c in children
             ]
 
-        else:
+        elif len(children) == 1:
             obj = python_object_from_cursor_by_kind(children[0])
 
-    elif cursor.kind == clang.cindex.CursorKind.STRING_LITERAL:
+        else:
+            obj = ''.join([t.spelling for t in cursor.get_tokens()])
+
+    elif cursor_kind == clang.cindex.CursorKind.STRING_LITERAL:
         obj = cursor.get_tokens().next().spelling
 
-    elif cursor.kind == clang.cindex.CursorKind.DECL_REF_EXPR:
-        obj = cursor.get_tokens().next().spelling
+    elif cursor_kind == clang.cindex.CursorKind.DECL_REF_EXPR:
+        tokens = list(cursor.get_tokens())
+        if tokens:
+            assert tokens[0].spelling == cursor.displayname
+        obj = cursor.displayname
+        # obj = cursor.get_tokens().next().spelling
 
     else:
         obj = None
