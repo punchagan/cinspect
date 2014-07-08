@@ -1,12 +1,13 @@
-import re
 import os
-from os.path import expanduser, exists, join
-SOURCE_DIR = expanduser(os.getenv('PY_SOURCE_DIR', '~/software/random/cpython'))
+from os.path import expanduser
+import types
 
 import inspect
-from clang_find import get_code_from_file
+from index import Index
 
 igetsource = inspect.getsource  # hack to allow patching in, inside IPython
+
+SOURCE_DIR = expanduser(os.getenv('PY_SOURCE_DIR', '~/software/random/cpython'))
 
 class InspectObject(object):
     """ A simple wrapper around the object we are trying to inspect. """
@@ -14,80 +15,69 @@ class InspectObject(object):
     def __init__(self, obj):
         self.obj = obj
 
-    def getfile(self):
-        return inspect.getfile(self.obj)
-
-
-class PythonObject(InspectObject):
-    pass
-
-
-class BuiltinFunction(InspectObject):
-
-    def getfile(self):
-        if self.module == '__builtin__':
-            path = ('Python', 'bltinmodule.c')
-
-        else:
-            path = ('Modules', '%smodule.c' % self.module)
-
-        return join(SOURCE_DIR, *path)
-
     @property
     def module(self):
         return self.obj.__module__
 
-
-class BuiltinMethod(InspectObject):
-
-    def getfile(self):
-        path = join(SOURCE_DIR, 'Objects', '%sobject.c' % self.type_name)
-        if not exists(path):
-            raise Exception('Could not find source file - %s!' % path)
-
-        return path
+    @property
+    def name(self):
+        return self.obj.__name__
 
     @property
     def type_name(self):
-        ## fixme: a hack to handle classmethods...
+        return type(self.obj.__self__).__name__
+
+    def get_hierarchy(self):
+        hierarchy = {
+            'module': self.module,
+            'name' : self.name,
+            'type_name' : self.type_name,
+            'type': self.__class__.__name__
+        }
+        return hierarchy
+
+class PythonObject(InspectObject):
+    pass
+
+class BuiltinFunction(InspectObject):
+    @property
+    def type_name(self):
+        return None
+
+
+class BuiltinMethod(InspectObject):
+    @property
+    def type_name(self):
         if isinstance(self.obj.__self__, type):
             type_name = self.obj.__self__.__name__
 
         else:
-            type_name = type(self.obj.__self__).__name__
+            type_name = super(BuiltinMethod, self).type_name
 
         return type_name
 
-
 class MethodDescriptor(BuiltinMethod):
+    @property
+    def module(self):
+        return None
 
     @property
     def type_name(self):
         return self.obj.__objclass__.__name__
 
-
 class Module(InspectObject):
+    @property
+    def module(self):
+        return None
 
-    def getfile(self):
-        names = ['%smodule.c', '%s.c']
-        for name in names:
-            path = join(SOURCE_DIR, 'Modules', name % self.obj.__name__)
-            if exists(path):
-                break
-        else:
-            raise Exception('Could not find source file - %s!' % path)
-
-        return path
+    @property
+    def type_name(self):
+        return None
 
 class Type(InspectObject):
-
-    def getfile(self):
-        path = join(SOURCE_DIR, 'Objects', '%sobject.c' % self.obj.__name__)
-        if not exists(path):
-            raise Exception('Could not find source file - %s!' % path)
-
-        return path
-
+    @property
+    def type_name(self):
+        return self.name
 
 def get_inspect_object(obj):
     """ Returns the object wrapped in the appropriate InspectObject class. """
@@ -118,15 +108,13 @@ def get_inspect_object(obj):
     elif inspect.isclass(obj):
         return Type(obj)
 
+    elif is_builtin_type_instance(obj):
+        return Type(obj.__class__)
+
     else:
         raise NotImplementedError
 
-
-def getfile(obj):
-    if not isinstance(obj, InspectObject):
-        obj = get_inspect_object(obj)
-    return obj.getfile()
-
+# fixme: we need a getfile to be consistent with inspect API.
 
 def getsource(obj):
 
@@ -137,16 +125,17 @@ def getsource(obj):
         source = igetsource(obj.obj)
 
     else:
-        with open(obj.getfile()) as f:
-            full_source = f.read()
-
-        if isinstance(obj, Module):
-            source = get_code_from_file(obj.getfile(), None, 'module')
-        elif isinstance(obj, Type):
-            source = get_code_from_file(
-                obj.getfile(), obj.obj.__name__, 'class'
-            )
-        else:
-            source = get_code_from_file(obj.getfile(), obj.obj.__name__)
+        index = Index()
+        source = index.get_source_from_hierarchy(obj.get_hierarchy())
 
     return source
+
+
+def is_builtin_type_instance(obj):
+    # fixme: is there a better way to do this?
+    # fixme: there are missing builtins, here!
+    return (
+        isinstance(obj, types.DictType) or
+        isinstance(obj, types.ListType) or
+        isinstance(obj, set)
+    )

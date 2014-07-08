@@ -17,10 +17,11 @@ def get_kind(cursor):
         return None
 
 
+# fixme: the indexer could use merging of all those visitors...
 def get_pymethod_def_mapping(cursor):
     """ Visits all PyMethodDef nodes and returns a unified mapping. """
 
-    mapping = {}
+    maps = {}
 
     def visitor(cursor):
         if get_kind(cursor) == clang.cindex.CursorKind.VAR_DECL:
@@ -28,6 +29,8 @@ def get_pymethod_def_mapping(cursor):
 
             if len(children) > 1 and children[0].displayname == 'PyMethodDef':
                 if children[1].kind == clang.cindex.CursorKind.INIT_LIST_EXPR:
+                    def_map = maps.setdefault(cursor.displayname, {})
+
                     for entry in python_object_from_cursor_by_kind(children[1]):
                         if entry is not None and len(entry) == 4:
                             py_name, c_name, _, _ = entry
@@ -36,14 +39,15 @@ def get_pymethod_def_mapping(cursor):
                                 py_name.startswith('"') and
                                 py_name.endswith('"')):
 
-                                mapping[eval(py_name)] = c_name
+                                def_map[py_name[1:-1]] = c_name
+
 
         for child in cursor.get_children():
             visitor(child)
 
     visitor(cursor)
 
-    return mapping
+    return maps
 
 
 def get_type_object_mapping(cursor):
@@ -60,7 +64,7 @@ def get_type_object_mapping(cursor):
                 if parsed_definition is not None and len(parsed_definition) >= 4:
                     name = parsed_definition[3]
                     if isinstance(name, basestring) and name.startswith('"') and name.endswith('"'):
-                        mapping[eval(name)] = cursor
+                        mapping[name[1:-1]] = get_code_from_cursor(cursor)
 
         for child in cursor.get_children():
             visitor(child)
@@ -70,22 +74,45 @@ def get_type_object_mapping(cursor):
     return mapping
 
 
-def get_code_for_function(cursor, name):
-    """ Return the code for a function with the given name given a cursor.
+def get_method_mapping(cursor):
+    """ Visit all function definitions and returns a mapping of name -> source. """
 
-    """
+    method_map = {}
 
-    def visitor(cursor, parent=None):
+    def visitor(cursor):
         if get_kind(cursor) == clang.cindex.CursorKind.FUNCTION_DECL:
-            if cursor.spelling == name:
-                return get_code_from_cursor(cursor)
+            method_map[cursor.spelling] = get_code_from_cursor(cursor)
 
         for child in cursor.get_children():
-            code = visitor(child, cursor)
-            if code is not None:
-                return code
+            visitor(child)
 
-    return visitor(cursor)
+    visitor(cursor)
+
+    return method_map
+
+
+def get_module_mapping(cursor):
+    """ Returns a mapping from the name to the source, if a module is defined. """
+
+    modules = {}
+
+    def visitor(cursor):
+        # fixme: this is extremely slow...
+        if get_kind(cursor) == clang.cindex.CursorKind.CALL_EXPR:
+            if cursor.displayname.startswith('Py_InitModule'):
+                name_cursor = list(cursor.get_children())[1]
+                tokens = list(name_cursor.get_tokens())
+                if len(tokens) > 0:
+                    name = tokens[0].spelling
+                    if isinstance(name, basestring) and name.startswith('"') and name.endswith('"'):
+                        modules[name[1:-1]] = get_code_from_cursor(cursor.translation_unit.cursor)
+
+        for child in cursor.get_children():
+            visitor(child)
+
+    visitor(cursor)
+
+    return modules
 
 
 def get_code_from_cursor(cursor):
@@ -93,12 +120,15 @@ def get_code_from_cursor(cursor):
 
     start, end = cursor.extent.begin_int_data, cursor.extent.end_int_data
 
-    with open(cursor.location.file.name) as f:
+    file = cursor.location.file
+    path = file.name if file is not None else cursor.translation_unit.spelling
+
+    with open(path) as f:
         # fixme: I have no idea why we are being offset by 2.
         # Offset of 1, could be because the marker is after the first char,
         # another offset of 1 could be because the indexing starts from 1?
         f.read(start-2)
-        text = f.read(end-start)
+        text = make_unicode(f.read(end-start))
 
     return text
 
@@ -140,11 +170,7 @@ def python_object_from_cursor_by_kind(cursor):
         obj = cursor.get_tokens().next().spelling
 
     elif cursor_kind == clang.cindex.CursorKind.DECL_REF_EXPR:
-        tokens = list(cursor.get_tokens())
-        if tokens:
-            assert tokens[0].spelling == cursor.displayname
         obj = cursor.displayname
-        # obj = cursor.get_tokens().next().spelling
 
     else:
         obj = None
@@ -170,40 +196,28 @@ def get_cursor_for_file(path):
     tu = index.parse(path, args=extra_args)
     diagnostics = list(tu.diagnostics)
 
+    # fixme: we need to actually see what serverity level is bad ...
     if len(diagnostics) > 0:
         import pprint
         pprint.pprint(diagnostics)
+        # fixme: we need some kind of verbosity level.
         raise RuntimeError('There were parse errors')
 
     return tu
 
 
-def get_code_from_file(path, py_name, object_type='file'):
-    """ Return the C-code of a function given it's py_name, and a path. """
+def make_unicode(text):
+    try:
+        text = text.decode('utf8')
+    except UnicodeDecodeError:
+        text = text.decode('iso-8859-15')
 
-    tu = get_cursor_for_file(path)
-    if object_type == 'file':
-        mapping = get_pymethod_def_mapping(tu.cursor)
-        code = get_code_for_function(tu.cursor, mapping[py_name])
-
-    elif object_type == 'class':
-        mapping = get_type_object_mapping(tu.cursor)
-        # fixme: function -> class
-        cursor = mapping.get(py_name, None)
-        if cursor is not None:
-            code = get_code_from_cursor(cursor)
-        else:
-            code = None
-
-    elif object_type == 'module':
-        with open(path) as f:
-            code = f.read()
-
-    return code
+    return text
 
 
 if __name__ == '__main__':
     import sys
-    path, py_name = sys.argv[1:3]
-    # print get_code_from_file(path, py_name)
-    print get_code_from_file(path, 'dict', 'class')
+    path = sys.argv[1]
+
+    tu = get_cursor_for_file(path)
+    print get_module_mapping(tu.cursor).keys()
