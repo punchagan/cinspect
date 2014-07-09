@@ -25,3 +25,19 @@ def patch_find_file(obj):
     return fname
 
 OI.find_file = patch_find_file
+
+ipy = get_ipython()
+
+old_format = ipy.inspector.format
+
+def c_format(raw, *args, **kwargs):
+    return raw
+
+def my_format(raw, out = None, scheme = ''):
+    try:
+        output = old_format(raw, out, scheme)
+    except:
+        output = raw
+    return output
+
+ipy.inspector.format = my_format
