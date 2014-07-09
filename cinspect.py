@@ -6,6 +6,7 @@ import inspect
 from index import Index
 
 igetsource = inspect.getsource  # hack to allow patching in, inside IPython
+igetfile = inspect.getfile
 
 SOURCE_DIR = expanduser(os.getenv('PY_SOURCE_DIR', '~/software/random/cpython'))
 
@@ -114,7 +115,18 @@ def get_inspect_object(obj):
     else:
         raise NotImplementedError
 
-# fixme: we need a getfile to be consistent with inspect API.
+def getfile(obj):
+    if not isinstance(obj, InspectObject):
+        obj = get_inspect_object(obj)
+
+    if isinstance(obj, PythonObject):
+        path = igetfile(obj.obj)
+
+    else:
+        index = Index()
+        path = index.get_file(obj.get_hierarchy())
+
+    return path
 
 def getsource(obj):
 
@@ -126,7 +138,7 @@ def getsource(obj):
 
     else:
         index = Index()
-        source = index.get_source_from_hierarchy(obj.get_hierarchy())
+        source = index.get_source(obj.get_hierarchy())
 
     return source
 

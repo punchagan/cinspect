@@ -36,11 +36,19 @@ class Index(object):
         db = abspath(db)
         self.db = db
 
-    def get_source_from_hierarchy(self, hierarchy):
+    def get_source(self, hierarchy):
+        data = self.get_data(hierarchy)
+        return data['source']
+
+    def get_file(self, hierarchy):
+        data = self.get_data(hierarchy)
+        return data['path']
+
+    def get_data(self, hierarchy):
         if not exists(self.db):
             raise OSError('Index data not found at %s' % self.db)
 
-        data = self._read_index()
+        indexed_data = self._read_index()
 
         name = hierarchy.get('name')
         module = hierarchy.get('module')
@@ -49,27 +57,27 @@ class Index(object):
 
 
         if type_ == 'Type':
-            objects = data.get('objects', {})
-            code = objects.get(name, '')
+            objects = indexed_data.get('objects', {})
+            data = objects.get(name, '')
 
         elif type_ == 'Module':
-            objects = data.get('modules', {})
-            code = objects.get(name, '')
+            objects = indexed_data.get('modules', {})
+            data = objects.get(name, '')
 
         else:
-            method_names = data.get('method_names', {})
+            method_names = indexed_data.get('method_names', {})
             for _, group in method_names.iteritems():
                 if name in group:
                     if type_name is not None and not group[name].startswith(type_name):
                         continue
                     method_name = group[name]
-                    code = data.get('methods', {}).get(method_name, '')
+                    data = indexed_data.get('methods', {}).get(method_name, '')
                     break
 
             else:
-                code = ''
+                data = ''
 
-        return code
+        return data
 
     def index(self, path):
         """ Create the indexes for sources at a given path.
@@ -154,12 +162,33 @@ class Index(object):
             modules = {}
 
         else:
-            objects = get_type_object_mapping(tu.cursor)
+            objects = self._tag_with_file_path(
+                get_type_object_mapping(tu.cursor), path
+            )
             method_names = get_pymethod_def_mapping(tu.cursor)
-            methods = get_method_mapping(tu.cursor)
-            modules = get_module_mapping(tu.cursor)
+            methods = self._tag_with_file_path(
+                get_method_mapping(tu.cursor), path
+            )
+            modules = self._tag_with_file_path(
+                get_module_mapping(tu.cursor), path
+            )
 
         return objects, method_names, methods, modules
+
+    def _tag_with_file_path(self, data, path):
+        """ Given a dictionary with names mapped to sources, we also add path.
+
+        """
+
+        mapping = {}
+
+        for key, value in data.iteritems():
+            if isinstance(value, basestring):
+                mapping[key] = {'source': value, 'path': path}
+            else:
+                mapping[key] = self._tag_with_file_path(value, path)
+
+        return mapping
 
 
 def is_c_file(path):

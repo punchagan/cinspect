@@ -1,7 +1,7 @@
 import inspect
 import unittest
 
-from cinspect import BuiltinMethod, getsource, MethodDescriptor
+from cinspect import BuiltinMethod, getfile, getsource, MethodDescriptor
 
 # Imports for testing
 import gc
@@ -58,6 +58,17 @@ class TestGetSource(unittest.TestCase):
 
         # When/Then
         self.assertIsFunction(getsource(function))
+
+    def test_should_get_file_for_method_from_any_module(self):
+        # Given
+        function = gc.collect
+
+        # When
+        path = getfile(function)
+
+        # Then
+        self.assertTrue(path.endswith('gcmodule.c'))
+
 
     def test_should_get_source_for_module(self):
         # Given
