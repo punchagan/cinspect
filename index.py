@@ -22,7 +22,7 @@ from os.path import (
 )
 
 # Local library.
-from clang_find import get_cursor_for_file, indexing_visitor
+from clang_find import index_file
 from _types import Module, Type
 
 
@@ -118,20 +118,6 @@ class Index(object):
 
         return data
 
-    def _get_file_indexes(self, path, data):
-        """ Index the sources for all the objects and methods. """
-
-        try:
-            tu = get_cursor_for_file(path)
-
-        except:
-            # fixme: need a verbosity setting.
-            print 'Could not parse %s' % path
-            data = {}
-
-        else:
-            indexing_visitor(tu.cursor, data, path)
-
     def _read_index(self):
         """ Read the index and return the data.
 
@@ -173,7 +159,7 @@ class Index(object):
         hashes = data.setdefault('hashes', {})
         current_hash = get_file_hash(path)
         if path not in hashes or current_hash != hashes[path]:
-            self._get_file_indexes(path, data)
+            index_file(path, data)
             hashes[path] = current_hash
 
     def _write_index(self, data):

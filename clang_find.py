@@ -1,19 +1,70 @@
 # FIXME:
-
 # - Clean up the API.  Too many functions thrown around.
 
 import clang.cindex
 
 
-def is_function(cursor):
+def index_file(path, data):
+    """ Index the sources for all the objects and methods. """
+
+    try:
+        tu = _get_cursor_for_file(path)
+
+    except RuntimeError:
+        # fixme: need a verbosity setting.
+        print 'Could not parse %s' % path
+
+    else:
+        _indexing_visitor(tu.cursor, data, path)
+
+
+#### 'Private' functions ######################################################
+
+
+def _indexing_visitor(cursor, data, path):
+    """ Visits all nodes and returns a mapping of various kinds of definitions.
+
+    """
+
+    objects = data.setdefault('objects', {})
+    method_names = data.setdefault('method_names', {})
+    methods = data.setdefault('methods', {})
+    modules = data.setdefault('modules', {})
+
+    def visitor(cursor):
+        if _is_function(cursor):
+            methods.update(
+                _tag_with_file_path(_parse_function(cursor), path)
+            )
+
+        elif _is_py_method_def(cursor):
+            method_names.update(_parse_py_method_def(cursor))
+
+        elif _is_py_type_object(cursor):
+            objects.update(
+                _tag_with_file_path(_parse_py_type_object(cursor), path)
+            )
+
+        elif _is_py_init_module(cursor):
+            modules.update(
+                _tag_with_file_path(_parse_py_init_module(cursor), path)
+            )
+
+        for child in cursor.get_children():
+            visitor(child)
+
+    visitor(cursor)
+
+
+def _is_function(cursor):
     return cursor.kind == clang.cindex.CursorKind.FUNCTION_DECL
 
 
-def parse_function(cursor):
-    return {cursor.spelling: get_code_from_cursor(cursor)}
+def _parse_function(cursor):
+    return {cursor.spelling: _get_code_from_cursor(cursor)}
 
 
-def is_py_method_def(cursor):
+def _is_py_method_def(cursor):
     if cursor.kind != clang.cindex.CursorKind.VAR_DECL:
         return False
 
@@ -26,11 +77,11 @@ def is_py_method_def(cursor):
     return False
 
 
-def parse_py_method_def(cursor):
+def _parse_py_method_def(cursor):
     value = list(cursor.get_children())[1]
     method_map = {}
 
-    for entry in python_object_from_cursor_by_kind(value):
+    for entry in _python_object_from_cursor_by_kind(value):
         if entry is not None and len(entry) == 4:
             py_name, c_name, _, _ = entry
 
@@ -42,7 +93,7 @@ def parse_py_method_def(cursor):
 
     return {cursor.displayname: method_map}
 
-def is_py_type_object(cursor):
+def _is_py_type_object(cursor):
     if cursor.kind != clang.cindex.CursorKind.VAR_DECL:
         return False
 
@@ -53,18 +104,18 @@ def is_py_type_object(cursor):
     return False
 
 
-def parse_py_type_object(cursor):
+def _parse_py_type_object(cursor):
     children = list(cursor.get_children())
-    parsed_definition = python_object_from_cursor_by_kind(children[1])
+    parsed_definition = _python_object_from_cursor_by_kind(children[1])
     if parsed_definition is not None and len(parsed_definition) >= 4:
         name = parsed_definition[3]
         if isinstance(name, basestring) and name.startswith('"') and name.endswith('"'):
-            return {name[1:-1]: get_code_from_cursor(cursor)}
+            return {name[1:-1]: _get_code_from_cursor(cursor)}
 
     return {}
 
 
-def is_py_init_module(cursor):
+def _is_py_init_module(cursor):
     if cursor.kind == clang.cindex.CursorKind.CALL_EXPR:
         if cursor.displayname.startswith('Py_InitModule'):
             return True
@@ -72,52 +123,16 @@ def is_py_init_module(cursor):
     return False
 
 
-def parse_py_init_module(cursor):
+def _parse_py_init_module(cursor):
     name_cursor = list(cursor.get_children())[1]
     tokens = list(name_cursor.get_tokens())
     if len(tokens) > 0:
         name = tokens[0].spelling
         if isinstance(name, basestring) and name.startswith('"') and name.endswith('"'):
-            return {name[1:-1]: get_code_from_cursor(cursor.translation_unit.cursor)}
+            return {name[1:-1]: _get_code_from_cursor(cursor.translation_unit.cursor)}
 
     return {}
 
-
-def indexing_visitor(cursor, data, path):
-    """ Visits all nodes and returns a mapping of various kinds of definitions.
-
-    """
-
-    objects = data.setdefault('objects', {})
-    method_names = data.setdefault('method_names', {})
-    methods = data.setdefault('methods', {})
-    modules = data.setdefault('modules', {})
-
-    def visitor(cursor):
-        if is_function(cursor):
-            methods.update(
-                _tag_with_file_path(parse_function(cursor), path)
-            )
-
-        elif is_py_method_def(cursor):
-            method_names.update(parse_py_method_def(cursor))
-
-        elif is_py_type_object(cursor):
-            objects.update(
-                _tag_with_file_path(parse_py_type_object(cursor), path)
-            )
-
-        elif is_py_init_module(cursor):
-            modules.update(
-                _tag_with_file_path(parse_py_init_module(cursor), path)
-            )
-
-        for child in cursor.get_children():
-            visitor(child)
-
-    visitor(cursor)
-
-    return data
 
 def _tag_with_file_path(data, path):
     """ Given a dictionary with names mapped to sources, we also add path.
@@ -135,7 +150,7 @@ def _tag_with_file_path(data, path):
     return mapping
 
 
-def get_code_from_cursor(cursor):
+def _get_code_from_cursor(cursor):
     """ Return a string with the code, given a cursor object. """
 
     start, end = cursor.extent.begin_int_data, cursor.extent.end_int_data
@@ -148,13 +163,13 @@ def get_code_from_cursor(cursor):
         # Offset of 1, could be because the marker is after the first char,
         # another offset of 1 could be because the indexing starts from 1?
         f.read(start-2)
-        text = make_unicode(f.read(end-start))
+        text = _make_unicode(f.read(end-start))
 
     return text
 
 
 # fixme: this isn't really returning a python object for everything..
-def python_object_from_cursor_by_kind(cursor):
+def _python_object_from_cursor_by_kind(cursor):
     """ Return a Python object based on the kind of the cursor.
 
     Recursively, manipulates all the objects contained within.
@@ -166,7 +181,7 @@ def python_object_from_cursor_by_kind(cursor):
 
     elif cursor.kind == clang.cindex.CursorKind.INIT_LIST_EXPR:
         obj = [
-            python_object_from_cursor_by_kind(c) for c in cursor.get_children()
+            _python_object_from_cursor_by_kind(c) for c in cursor.get_children()
         ]
 
     elif cursor.kind == clang.cindex.CursorKind.CSTYLE_CAST_EXPR:
@@ -176,11 +191,11 @@ def python_object_from_cursor_by_kind(cursor):
         children = list(cursor.get_children())
         if len(children) > 1:
             obj = [
-                python_object_from_cursor_by_kind(c) for c in children
+                _python_object_from_cursor_by_kind(c) for c in children
             ]
 
         elif len(children) == 1:
-            obj = python_object_from_cursor_by_kind(children[0])
+            obj = _python_object_from_cursor_by_kind(children[0])
 
         else:
             obj = ''.join([t.spelling for t in cursor.get_tokens()])
@@ -197,7 +212,7 @@ def python_object_from_cursor_by_kind(cursor):
     return obj
 
 
-def get_cursor_for_file(path):
+def _get_cursor_for_file(path):
     """ Returns a cursor object, given the path to a file.
 
     Raises a RuntimeError if the file couldn't be parsed, without errors.
@@ -225,7 +240,7 @@ def get_cursor_for_file(path):
     return tu
 
 
-def make_unicode(text):
+def _make_unicode(text):
 
     for encoding in ('utf8', 'iso-8859-15'):
         try:
@@ -239,6 +254,6 @@ def make_unicode(text):
 if __name__ == '__main__':
     import sys
     path = sys.argv[1]
-
-    tu = get_cursor_for_file(path)
-    print indexing_visitor(tu.cursor, {}, path).keys()
+    data = {}
+    index_file(path, data)
+    print data.keys()
