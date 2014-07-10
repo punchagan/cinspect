@@ -29,22 +29,68 @@ from clang_find import (
 
 
 class Index(object):
+    """ An object to create and read C-source indexes for packages. """
+
+    #### 'Object' protocol ####################################################
 
     def __init__(self, db=None):
         if db is None:
             db = '.index.json'
-        db = abspath(db)
-        self.db = db
+        self.db = abspath(db)
+
+    #### 'Index' protocol #####################################################
 
     def get_source(self, hierarchy):
-        data = self.get_data(hierarchy)
+        """ Return the source for the object."""
+
+        data = self._get_data(hierarchy)
         return data['source']
 
     def get_file(self, hierarchy):
-        data = self.get_data(hierarchy)
+        """ Return the file where the object has been defined. """
+
+        data = self._get_data(hierarchy)
         return data['path']
 
-    def get_data(self, hierarchy):
+    def index(self, path):
+        """ Create the indexes for sources at a given path.
+
+        NOTE: Indexing is not thread-safe, right now!
+
+        """
+
+        if not exists(path):
+            raise OSError('Path %s does not exist' % path)
+
+        if isdir(path):
+            self._update_dir_in_index(path)
+
+        else:
+            data = self._read_index()
+            self._update_file_in_index(path, data)
+            self._write_index(data)
+
+    #### 'Private' protocol ###################################################
+
+    def _index_files_in_dir(self, data, dirname, fnames):
+        """ The function we pass on to the directory tree walk function. """
+
+        # fixme: additional argument to ignore files?
+        for fname in sorted(fnames):
+            if is_c_file(fname):
+                path = join(dirname, fname)
+                self._update_file_in_index(path, data)
+
+    def _get_data(self, hierarchy):
+        """ Get the data for a given 'hierarchy'.
+
+        A hierarchy essentially tells us the location of the object we are
+        looking for.
+
+        """
+
+        # fixme: the use of a "hierarchy" is ugly!  use the types, directly!
+
         if not exists(self.db):
             raise OSError('Index data not found at %s' % self.db)
 
@@ -75,77 +121,9 @@ class Index(object):
                     break
 
             else:
-                data = ''
+                data = {'source': '', 'path': ''}
 
         return data
-
-    def index(self, path):
-        """ Create the indexes for sources at a given path.
-
-        NOTE: Indexing is not thread-safe, right now!
-
-        """
-
-        if not exists(path):
-            raise OSError('Path %s does not exist' % path)
-
-        if isdir(path):
-            self._update_dir_in_index(path)
-
-        else:
-            data = self._read_index()
-            self._update_file_in_index(path, data)
-            self._write_index(data)
-
-    def _update_dir_in_index(self, path):
-        """ Walks through the directory, and indexes all the files in it. """
-
-        data = self._read_index()
-        walk(expanduser(path), self._index_files_in_dir, data)
-        self._write_index(data)
-
-
-    def _read_index(self):
-        """ Read the index and return the data.
-
-        Returns an empty dictionary if no index exists.
-
-        """
-
-        if exists(self.db):
-            with open(self.db) as f:
-                data = json.load(f)
-        else:
-            data = {}
-
-        return data
-
-    def _write_index(self, data):
-        """ Read the index and return the data. """
-
-        with open(self.db, 'w') as f:
-            json.dump(data, f, indent=2)
-
-    def _index_files_in_dir(self, data, dirname, fnames):
-        # fixme: ignore files?
-        # testsuites by default. (if test in root name...)?
-        for fname in sorted(fnames):
-            if is_c_file(fname):
-                path = join(dirname, fname)
-                self._update_file_in_index(path, data)
-
-    def _update_file_in_index(self, path, data):
-        hashes = data.setdefault('hashes', {})
-        current_hash = get_file_hash(path)
-        if path not in hashes or current_hash != hashes[path]:
-            objects, method_names, methods, modules = self._get_file_indexes(path)
-
-            # fixme: this should be by module.
-            data.setdefault('objects', {}).update(objects)
-            data.setdefault('method_names', {}).update(method_names)
-            data.setdefault('methods', {}).update(methods)
-            data.setdefault('modules', {}).update(modules)
-            hashes[path] = current_hash
 
     def _get_file_indexes(self, path):
         """ Index the sources for all the objects and methods. """
@@ -175,6 +153,21 @@ class Index(object):
 
         return objects, method_names, methods, modules
 
+    def _read_index(self):
+        """ Read the index and return the data.
+
+        Returns an empty dictionary if no index exists.
+
+        """
+
+        if exists(self.db):
+            with open(self.db) as f:
+                data = json.load(f)
+        else:
+            data = {}
+
+        return data
+
     def _tag_with_file_path(self, data, path):
         """ Given a dictionary with names mapped to sources, we also add path.
 
@@ -190,9 +183,31 @@ class Index(object):
 
         return mapping
 
+    def _update_dir_in_index(self, path):
+        """ Walks through the directory, and indexes all the files in it. """
 
-def is_c_file(path):
-    return splitext(path)[-1].lower() == '.c'
+        data = self._read_index()
+        walk(expanduser(path), self._index_files_in_dir, data)
+        self._write_index(data)
+
+    def _update_file_in_index(self, path, data):
+        hashes = data.setdefault('hashes', {})
+        current_hash = get_file_hash(path)
+        if path not in hashes or current_hash != hashes[path]:
+            objects, method_names, methods, modules = self._get_file_indexes(path)
+
+            # fixme: this should be by module.
+            data.setdefault('objects', {}).update(objects)
+            data.setdefault('method_names', {}).update(method_names)
+            data.setdefault('methods', {}).update(methods)
+            data.setdefault('modules', {}).update(modules)
+            hashes[path] = current_hash
+
+    def _write_index(self, data):
+        """ Read the index and return the data. """
+
+        with open(self.db, 'w') as f:
+            json.dump(data, f, indent=2)
 
 
 def get_file_hash(path):
@@ -202,6 +217,9 @@ def get_file_hash(path):
         h = md5(f.read())
 
     return h.hexdigest()
+
+def is_c_file(path):
+    return splitext(path)[-1].lower() == '.c'
 
 
 if __name__ == '__main__':
