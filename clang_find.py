@@ -246,7 +246,10 @@ def make_unicode(text):
     try:
         text = text.decode('utf8')
     except UnicodeDecodeError:
-        text = text.decode('iso-8859-15')
+        try:
+            text = text.decode('iso-8859-15')
+        except UnicodeDecodeError:
+            text = text.decode('utf8', 'replace')
 
     return text
 
