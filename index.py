@@ -89,6 +89,7 @@ class Index(object):
 
         name = obj.name
         type_name = obj.type_name
+        module = obj.module
 
         if isinstance(obj, Type):
             objects = indexed_data.get('objects', {})
@@ -105,6 +106,8 @@ class Index(object):
             for _, group in method_names.iteritems():
                 if name in group:
                     if type_name is not None and not group[name].startswith(type_name):
+                        continue
+                    elif module is not None and not group[name].startswith(module.strip('_')):
                         continue
                     method_name = group[name]
                     data = indexed_data.get('methods', {}).get(method_name, '')
