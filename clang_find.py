@@ -8,23 +8,13 @@
 import clang.cindex
 
 
-# fixme: what's going on here?
-def get_kind(cursor):
-    """ There are unknown cursor kinds! Why?! """
-    try:
-        return cursor.kind
-    except ValueError:
-        return None
-
-
-# fixme: the indexer could use merging of all those visitors...
 def get_pymethod_def_mapping(cursor):
     """ Visits all PyMethodDef nodes and returns a unified mapping. """
 
     maps = {}
 
     def visitor(cursor):
-        if get_kind(cursor) == clang.cindex.CursorKind.VAR_DECL:
+        if cursor.kind == clang.cindex.CursorKind.VAR_DECL:
             children = list(cursor.get_children())
 
             if len(children) > 1 and children[0].displayname == 'PyMethodDef':
@@ -56,7 +46,7 @@ def get_type_object_mapping(cursor):
     mapping = {}
 
     def visitor(cursor):
-        if get_kind(cursor) == clang.cindex.CursorKind.VAR_DECL:
+        if cursor.kind == clang.cindex.CursorKind.VAR_DECL:
             children = list(cursor.get_children())
 
             if len(children) > 1 and children[0].displayname == 'PyTypeObject':
@@ -80,7 +70,7 @@ def get_method_mapping(cursor):
     method_map = {}
 
     def visitor(cursor):
-        if get_kind(cursor) == clang.cindex.CursorKind.FUNCTION_DECL:
+        if cursor.kind == clang.cindex.CursorKind.FUNCTION_DECL:
             method_map[cursor.spelling] = get_code_from_cursor(cursor)
 
         for child in cursor.get_children():
@@ -98,7 +88,7 @@ def get_module_mapping(cursor):
 
     def visitor(cursor):
         # fixme: this is extremely slow...
-        if get_kind(cursor) == clang.cindex.CursorKind.CALL_EXPR:
+        if cursor.kind == clang.cindex.CursorKind.CALL_EXPR:
             if cursor.displayname.startswith('Py_InitModule'):
                 name_cursor = list(cursor.get_children())[1]
                 tokens = list(name_cursor.get_tokens())
@@ -140,20 +130,18 @@ def python_object_from_cursor_by_kind(cursor):
 
     """
 
-    cursor_kind = get_kind(cursor)
-
-    if cursor_kind is None:
+    if cursor.kind is None:
         obj = None
 
-    elif cursor_kind == clang.cindex.CursorKind.INIT_LIST_EXPR:
+    elif cursor.kind == clang.cindex.CursorKind.INIT_LIST_EXPR:
         obj = [
             python_object_from_cursor_by_kind(c) for c in cursor.get_children()
         ]
 
-    elif cursor_kind == clang.cindex.CursorKind.CSTYLE_CAST_EXPR:
+    elif cursor.kind == clang.cindex.CursorKind.CSTYLE_CAST_EXPR:
         obj = list(cursor.get_children())[-1].displayname
 
-    elif cursor_kind == clang.cindex.CursorKind.UNEXPOSED_EXPR:
+    elif cursor.kind == clang.cindex.CursorKind.UNEXPOSED_EXPR:
         children = list(cursor.get_children())
         if len(children) > 1:
             obj = [
@@ -166,10 +154,10 @@ def python_object_from_cursor_by_kind(cursor):
         else:
             obj = ''.join([t.spelling for t in cursor.get_tokens()])
 
-    elif cursor_kind == clang.cindex.CursorKind.STRING_LITERAL:
+    elif cursor.kind == clang.cindex.CursorKind.STRING_LITERAL:
         obj = cursor.get_tokens().next().spelling
 
-    elif cursor_kind == clang.cindex.CursorKind.DECL_REF_EXPR:
+    elif cursor.kind == clang.cindex.CursorKind.DECL_REF_EXPR:
         obj = cursor.displayname
 
     else:
