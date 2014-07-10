@@ -8,29 +8,46 @@
 import clang.cindex
 
 
+def is_py_method_def(cursor):
+    if cursor.kind != clang.cindex.CursorKind.VAR_DECL:
+        return False
+
+    children = list(cursor.get_children())
+
+    if len(children) > 1 and children[0].displayname == 'PyMethodDef':
+        if children[1].kind == clang.cindex.CursorKind.INIT_LIST_EXPR:
+            return True
+
+    return False
+
+
+def parse_py_method_def(cursor):
+    value = list(cursor.get_children())[1]
+    method_map = {}
+
+    for entry in python_object_from_cursor_by_kind(value):
+        if entry is not None and len(entry) == 4:
+            py_name, c_name, _, _ = entry
+
+            if (isinstance(py_name, basestring) and
+                py_name.startswith('"') and
+                py_name.endswith('"')):
+
+                method_map[py_name[1:-1]] = c_name
+
+    return method_map
+
+
 def get_pymethod_def_mapping(cursor):
     """ Visits all PyMethodDef nodes and returns a unified mapping. """
 
     maps = {}
 
     def visitor(cursor):
-        if cursor.kind == clang.cindex.CursorKind.VAR_DECL:
-            children = list(cursor.get_children())
-
-            if len(children) > 1 and children[0].displayname == 'PyMethodDef':
-                if children[1].kind == clang.cindex.CursorKind.INIT_LIST_EXPR:
-                    def_map = maps.setdefault(cursor.displayname, {})
-
-                    for entry in python_object_from_cursor_by_kind(children[1]):
-                        if entry is not None and len(entry) == 4:
-                            py_name, c_name, _, _ = entry
-
-                            if (isinstance(py_name, basestring) and
-                                py_name.startswith('"') and
-                                py_name.endswith('"')):
-
-                                def_map[py_name[1:-1]] = c_name
-
+        if is_py_method_def(cursor):
+            maps.setdefault(cursor.displayname, {}).update(
+                parse_py_method_def(cursor)
+            )
 
         for child in cursor.get_children():
             visitor(child)
@@ -39,6 +56,27 @@ def get_pymethod_def_mapping(cursor):
 
     return maps
 
+def is_py_type_object(cursor):
+    if cursor.kind != clang.cindex.CursorKind.VAR_DECL:
+        return False
+
+    children = list(cursor.get_children())
+    if len(children) > 1 and children[0].displayname == 'PyTypeObject':
+        return True
+
+    return False
+
+
+def parse_py_type_object(cursor):
+    children = list(cursor.get_children())
+    parsed_definition = python_object_from_cursor_by_kind(children[1])
+    if parsed_definition is not None and len(parsed_definition) >= 4:
+        name = parsed_definition[3]
+        if isinstance(name, basestring) and name.startswith('"') and name.endswith('"'):
+            return name[1:-1], get_code_from_cursor(cursor)
+
+    return None, None
+
 
 def get_type_object_mapping(cursor):
     """ Visits all PyTypeObject nodes and returns a mapping of name to cursors. """
@@ -46,16 +84,10 @@ def get_type_object_mapping(cursor):
     mapping = {}
 
     def visitor(cursor):
-        if cursor.kind == clang.cindex.CursorKind.VAR_DECL:
-            children = list(cursor.get_children())
-
-            if len(children) > 1 and children[0].displayname == 'PyTypeObject':
-                parsed_definition = python_object_from_cursor_by_kind(children[1])
-                if parsed_definition is not None and len(parsed_definition) >= 4:
-                    name = parsed_definition[3]
-                    if isinstance(name, basestring) and name.startswith('"') and name.endswith('"'):
-                        mapping[name[1:-1]] = get_code_from_cursor(cursor)
-
+        if is_py_type_object(cursor):
+            name, code = parse_py_type_object(cursor)
+            if name is not None:
+                mapping[name] = code
         for child in cursor.get_children():
             visitor(child)
 
@@ -64,14 +96,20 @@ def get_type_object_mapping(cursor):
     return mapping
 
 
+def is_function(cursor):
+    return cursor.kind == clang.cindex.CursorKind.FUNCTION_DECL
+
+def parse_function(cursor):
+    return {cursor.spelling: get_code_from_cursor(cursor)}
+
 def get_method_mapping(cursor):
     """ Visit all function definitions and returns a mapping of name -> source. """
 
     method_map = {}
 
     def visitor(cursor):
-        if cursor.kind == clang.cindex.CursorKind.FUNCTION_DECL:
-            method_map[cursor.spelling] = get_code_from_cursor(cursor)
+        if is_function(cursor):
+            method_map.update(parse_function(cursor))
 
         for child in cursor.get_children():
             visitor(child)
@@ -80,6 +118,24 @@ def get_method_mapping(cursor):
 
     return method_map
 
+def is_py_init_module(cursor):
+    if cursor.kind == clang.cindex.CursorKind.CALL_EXPR:
+        if cursor.displayname.startswith('Py_InitModule'):
+            return True
+
+    return False
+
+def parse_py_init_module(cursor):
+    name_cursor = list(cursor.get_children())[1]
+    tokens = list(name_cursor.get_tokens())
+    if len(tokens) > 0:
+        name = tokens[0].spelling
+        if isinstance(name, basestring) and name.startswith('"') and name.endswith('"'):
+            return {name[1:-1]: get_code_from_cursor(cursor.translation_unit.cursor)}
+
+    return {}
+
+
 
 def get_module_mapping(cursor):
     """ Returns a mapping from the name to the source, if a module is defined. """
@@ -87,16 +143,8 @@ def get_module_mapping(cursor):
     modules = {}
 
     def visitor(cursor):
-        # fixme: this is extremely slow...
-        if cursor.kind == clang.cindex.CursorKind.CALL_EXPR:
-            if cursor.displayname.startswith('Py_InitModule'):
-                name_cursor = list(cursor.get_children())[1]
-                tokens = list(name_cursor.get_tokens())
-                if len(tokens) > 0:
-                    name = tokens[0].spelling
-                    if isinstance(name, basestring) and name.startswith('"') and name.endswith('"'):
-                        modules[name[1:-1]] = get_code_from_cursor(cursor.translation_unit.cursor)
-
+        if is_py_init_module(cursor):
+            modules.update(parse_py_init_module(cursor))
         for child in cursor.get_children():
             visitor(child)
 
@@ -187,8 +235,8 @@ def get_cursor_for_file(path):
     # fixme: we need to actually see what serverity level is bad ...
     if len(diagnostics) > 0:
         import pprint
-        pprint.pprint(diagnostics)
         # fixme: we need some kind of verbosity level.
+        pprint.pprint(diagnostics)
         raise RuntimeError('There were parse errors')
 
     return tu
@@ -208,4 +256,7 @@ if __name__ == '__main__':
     path = sys.argv[1]
 
     tu = get_cursor_for_file(path)
+    print get_pymethod_def_mapping(tu.cursor).keys()
+    print get_type_object_mapping(tu.cursor).keys()
+    print get_method_mapping(tu.cursor).keys()
     print get_module_mapping(tu.cursor).keys()
