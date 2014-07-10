@@ -243,15 +243,14 @@ def get_cursor_for_file(path):
 
 
 def make_unicode(text):
-    try:
-        text = text.decode('utf8')
-    except UnicodeDecodeError:
-        try:
-            text = text.decode('iso-8859-15')
-        except UnicodeDecodeError:
-            text = text.decode('utf8', 'replace')
 
-    return text
+    for encoding in ('utf8', 'iso-8859-15'):
+        try:
+            return text.decode(encoding)
+        except UnicodeDecodeError:
+            pass
+
+    return text.decode('utf8', 'replace')
 
 
 if __name__ == '__main__':
