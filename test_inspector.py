@@ -1,7 +1,8 @@
 import inspect
 import unittest
 
-from cinspect import BuiltinMethod, getfile, getsource, MethodDescriptor
+from cinspect import getfile, getsource
+from _types import BuiltinMethod, MethodDescriptor
 
 # Imports for testing
 import gc
@@ -121,7 +122,6 @@ class TestGetSource(unittest.TestCase):
 
     def assertIsFunction(self, source):
         source = source.strip()
-        source_lines = source.splitlines()
         self.assertGreaterEqual(len(source.splitlines()), 1)
         self.assertTrue(source.startswith('static PyObject'))
         self.assertTrue(source.endswith('}'))
@@ -133,7 +133,6 @@ class TestGetSource(unittest.TestCase):
     #### Private protocol #####################################################
 
     def _get_builtin_functions(self):
-        builtin_functions = []
         ns = {}
         exec 'from __builtin__ import *' in ns
 

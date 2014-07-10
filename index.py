@@ -24,8 +24,9 @@ from os.path import (
 # Local library.
 from clang_find import (
     get_cursor_for_file, get_pymethod_def_mapping, get_type_object_mapping,
-    get_code_from_cursor, get_method_mapping, get_module_mapping
+    get_method_mapping, get_module_mapping
 )
+from _types import Module, Type
 
 
 class Index(object):
@@ -40,16 +41,16 @@ class Index(object):
 
     #### 'Index' protocol #####################################################
 
-    def get_source(self, hierarchy):
+    def get_source(self, obj):
         """ Return the source for the object."""
 
-        data = self._get_data(hierarchy)
+        data = self._get_data(obj)
         return data['source']
 
-    def get_file(self, hierarchy):
+    def get_file(self, obj):
         """ Return the file where the object has been defined. """
 
-        data = self._get_data(hierarchy)
+        data = self._get_data(obj)
         return data['path']
 
     def index(self, path):
@@ -81,37 +82,29 @@ class Index(object):
                 path = join(dirname, fname)
                 self._update_file_in_index(path, data)
 
-    def _get_data(self, hierarchy):
-        """ Get the data for a given 'hierarchy'.
-
-        A hierarchy essentially tells us the location of the object we are
-        looking for.
-
-        """
-
-        # fixme: the use of a "hierarchy" is ugly!  use the types, directly!
+    def _get_data(self, obj):
+        """ Get the data for the given object. """
 
         if not exists(self.db):
             raise OSError('Index data not found at %s' % self.db)
 
         indexed_data = self._read_index()
 
-        name = hierarchy.get('name')
-        module = hierarchy.get('module')
-        type_name = hierarchy.get('type_name')
-        type_ = hierarchy.get('type')
+        name = obj.name
+        type_name = obj.type_name
 
-
-        if type_ == 'Type':
+        if isinstance(obj, Type):
             objects = indexed_data.get('objects', {})
             data = objects.get(name, '')
 
-        elif type_ == 'Module':
+        elif isinstance(obj, Module):
             objects = indexed_data.get('modules', {})
             data = objects.get(name, '')
 
         else:
             method_names = indexed_data.get('method_names', {})
+            # fixme: Use the information from the module/object on which
+            # mapping to look in!
             for _, group in method_names.iteritems():
                 if name in group:
                     if type_name is not None and not group[name].startswith(type_name):
