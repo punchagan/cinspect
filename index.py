@@ -22,10 +22,7 @@ from os.path import (
 )
 
 # Local library.
-from clang_find import (
-    get_cursor_for_file, get_pymethod_def_mapping, get_type_object_mapping,
-    get_method_mapping, get_module_mapping
-)
+from clang_find import get_cursor_for_file, indexing_visitor
 from _types import Module, Type
 
 
@@ -118,7 +115,7 @@ class Index(object):
 
         return data
 
-    def _get_file_indexes(self, path):
+    def _get_file_indexes(self, path, data):
         """ Index the sources for all the objects and methods. """
 
         try:
@@ -127,24 +124,10 @@ class Index(object):
         except:
             # fixme: need a verbosity setting.
             print 'Could not parse %s' % path
-            objects = {}
-            method_names = {}
-            methods = {}
-            modules = {}
+            data = {}
 
         else:
-            objects = self._tag_with_file_path(
-                get_type_object_mapping(tu.cursor), path
-            )
-            method_names = get_pymethod_def_mapping(tu.cursor)
-            methods = self._tag_with_file_path(
-                get_method_mapping(tu.cursor), path
-            )
-            modules = self._tag_with_file_path(
-                get_module_mapping(tu.cursor), path
-            )
-
-        return objects, method_names, methods, modules
+            indexing_visitor(tu.cursor, data, path)
 
     def _read_index(self):
         """ Read the index and return the data.
@@ -187,13 +170,7 @@ class Index(object):
         hashes = data.setdefault('hashes', {})
         current_hash = get_file_hash(path)
         if path not in hashes or current_hash != hashes[path]:
-            objects, method_names, methods, modules = self._get_file_indexes(path)
-
-            # fixme: this should be by module.
-            data.setdefault('objects', {}).update(objects)
-            data.setdefault('method_names', {}).update(method_names)
-            data.setdefault('methods', {}).update(methods)
-            data.setdefault('modules', {}).update(modules)
+            self._get_file_indexes(path, data)
             hashes[path] = current_hash
 
     def _write_index(self, data):

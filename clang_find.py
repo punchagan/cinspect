@@ -2,10 +2,15 @@
 
 # - Clean up the API.  Too many functions thrown around.
 
-# - Add some sort of caching.  The tests for inspection jumped up an ordere of
-# magnitude, by shifting to using clang from regexes.
-
 import clang.cindex
+
+
+def is_function(cursor):
+    return cursor.kind == clang.cindex.CursorKind.FUNCTION_DECL
+
+
+def parse_function(cursor):
+    return {cursor.spelling: get_code_from_cursor(cursor)}
 
 
 def is_py_method_def(cursor):
@@ -35,26 +40,7 @@ def parse_py_method_def(cursor):
 
                 method_map[py_name[1:-1]] = c_name
 
-    return method_map
-
-
-def get_pymethod_def_mapping(cursor):
-    """ Visits all PyMethodDef nodes and returns a unified mapping. """
-
-    maps = {}
-
-    def visitor(cursor):
-        if is_py_method_def(cursor):
-            maps.setdefault(cursor.displayname, {}).update(
-                parse_py_method_def(cursor)
-            )
-
-        for child in cursor.get_children():
-            visitor(child)
-
-    visitor(cursor)
-
-    return maps
+    return {cursor.displayname: method_map}
 
 def is_py_type_object(cursor):
     if cursor.kind != clang.cindex.CursorKind.VAR_DECL:
@@ -73,50 +59,10 @@ def parse_py_type_object(cursor):
     if parsed_definition is not None and len(parsed_definition) >= 4:
         name = parsed_definition[3]
         if isinstance(name, basestring) and name.startswith('"') and name.endswith('"'):
-            return name[1:-1], get_code_from_cursor(cursor)
+            return {name[1:-1]: get_code_from_cursor(cursor)}
 
-    return None, None
+    return {}
 
-
-def get_type_object_mapping(cursor):
-    """ Visits all PyTypeObject nodes and returns a mapping of name to cursors. """
-
-    mapping = {}
-
-    def visitor(cursor):
-        if is_py_type_object(cursor):
-            name, code = parse_py_type_object(cursor)
-            if name is not None:
-                mapping[name] = code
-        for child in cursor.get_children():
-            visitor(child)
-
-    visitor(cursor)
-
-    return mapping
-
-
-def is_function(cursor):
-    return cursor.kind == clang.cindex.CursorKind.FUNCTION_DECL
-
-def parse_function(cursor):
-    return {cursor.spelling: get_code_from_cursor(cursor)}
-
-def get_method_mapping(cursor):
-    """ Visit all function definitions and returns a mapping of name -> source. """
-
-    method_map = {}
-
-    def visitor(cursor):
-        if is_function(cursor):
-            method_map.update(parse_function(cursor))
-
-        for child in cursor.get_children():
-            visitor(child)
-
-    visitor(cursor)
-
-    return method_map
 
 def is_py_init_module(cursor):
     if cursor.kind == clang.cindex.CursorKind.CALL_EXPR:
@@ -124,6 +70,7 @@ def is_py_init_module(cursor):
             return True
 
     return False
+
 
 def parse_py_init_module(cursor):
     name_cursor = list(cursor.get_children())[1]
@@ -136,21 +83,56 @@ def parse_py_init_module(cursor):
     return {}
 
 
+def indexing_visitor(cursor, data, path):
+    """ Visits all nodes and returns a mapping of various kinds of definitions.
 
-def get_module_mapping(cursor):
-    """ Returns a mapping from the name to the source, if a module is defined. """
+    """
 
-    modules = {}
+    objects = data.setdefault('objects', {})
+    method_names = data.setdefault('method_names', {})
+    methods = data.setdefault('methods', {})
+    modules = data.setdefault('modules', {})
 
     def visitor(cursor):
-        if is_py_init_module(cursor):
-            modules.update(parse_py_init_module(cursor))
+        if is_function(cursor):
+            methods.update(
+                _tag_with_file_path(parse_function(cursor), path)
+            )
+
+        elif is_py_method_def(cursor):
+            method_names.update(parse_py_method_def(cursor))
+
+        elif is_py_type_object(cursor):
+            objects.update(
+                _tag_with_file_path(parse_py_type_object(cursor), path)
+            )
+
+        elif is_py_init_module(cursor):
+            modules.update(
+                _tag_with_file_path(parse_py_init_module(cursor), path)
+            )
+
         for child in cursor.get_children():
             visitor(child)
 
     visitor(cursor)
 
-    return modules
+    return data
+
+def _tag_with_file_path(data, path):
+    """ Given a dictionary with names mapped to sources, we also add path.
+
+    """
+
+    mapping = {}
+
+    for key, value in data.iteritems():
+        if isinstance(value, basestring):
+            mapping[key] = {'source': value, 'path': path}
+        else:
+            mapping[key] = _tag_with_file_path(value, path)
+
+    return mapping
 
 
 def get_code_from_cursor(cursor):
@@ -169,6 +151,7 @@ def get_code_from_cursor(cursor):
         text = make_unicode(f.read(end-start))
 
     return text
+
 
 # fixme: this isn't really returning a python object for everything..
 def python_object_from_cursor_by_kind(cursor):
@@ -258,7 +241,4 @@ if __name__ == '__main__':
     path = sys.argv[1]
 
     tu = get_cursor_for_file(path)
-    print get_pymethod_def_mapping(tu.cursor).keys()
-    print get_type_object_mapping(tu.cursor).keys()
-    print get_method_mapping(tu.cursor).keys()
-    print get_module_mapping(tu.cursor).keys()
+    print indexing_visitor(tu.cursor, {}, path).keys()
