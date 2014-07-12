@@ -115,15 +115,8 @@ class Writer(object):
     def _index_file(self, path, data):
         """ Index the sources for all the objects and methods. """
 
-        try:
-            tu = self._get_cursor_for_file(path)
-
-        except RuntimeError:
-            # fixme: need a verbosity setting.
-            print 'Could not parse %s' % path
-
-        else:
-            self._indexing_visitor(tu.cursor, data, path)
+        tu = self._get_cursor_for_file(path)
+        self._indexing_visitor(tu.cursor, data, path)
 
     def _index_files_in_dir(self, data, dirname, fnames):
         """ The function we pass on to the directory tree walk function. """
@@ -324,8 +317,13 @@ class Writer(object):
         hashes = data.setdefault('hashes', {})
         current_hash = self._get_file_hash(path)
         if path not in hashes or current_hash != hashes[path]:
-            self._index_file(path, data)
-            hashes[path] = current_hash
+            try:
+               self._index_file(path, data)
+            except RuntimeError:
+                # fixme: need a verbosity setting.
+                print 'Could not parse %s' % path
+            else:
+                hashes[path] = current_hash
 
 def main():
     import sys
