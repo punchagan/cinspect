@@ -1,8 +1,8 @@
 import inspect
 import unittest
 
-from cinspect import getfile, getsource
-from _types import BuiltinMethod, MethodDescriptor
+from cinspect.cinspect import getfile, getsource
+from cinspect.cinspect._types import BuiltinMethod, MethodDescriptor
 
 # Imports for testing
 import gc

@@ -24,7 +24,7 @@ from os.path import (
 from serialize import read_index, write_index
 
 # 3rd party library.
-import clang.cindex
+import cinspect.vendor.clang.cindex as ci
 
 
 class Writer(object):
@@ -34,7 +34,8 @@ class Writer(object):
 
     def __init__(self, db=None):
         if db is None:
-            db = '.index.json'
+            # fixme: this path is hardcoded at two places, reader and writer.
+            db = expanduser('~/.index.json')
         self.db = abspath(db)
 
     #### 'Writer' protocol ####################################################
@@ -90,7 +91,7 @@ class Writer(object):
             '-I/home/punchagan/software/random/cpython/'
         ]
 
-        index = clang.cindex.Index.create()
+        index = ci.Index.create()
         tu = index.parse(path, args=extra_args)
         diagnostics = list(tu.diagnostics)
 
@@ -173,29 +174,29 @@ class Writer(object):
         return splitext(path)[-1].lower() == '.c'
 
     def _is_function(self, cursor):
-        return cursor.kind == clang.cindex.CursorKind.FUNCTION_DECL
+        return cursor.kind == ci.CursorKind.FUNCTION_DECL
 
     def _is_py_init_module(self, cursor):
-        if cursor.kind == clang.cindex.CursorKind.CALL_EXPR:
+        if cursor.kind == ci.CursorKind.CALL_EXPR:
             if cursor.displayname.startswith('Py_InitModule'):
                 return True
 
         return False
 
     def _is_py_method_def(self, cursor):
-        if cursor.kind != clang.cindex.CursorKind.VAR_DECL:
+        if cursor.kind != ci.CursorKind.VAR_DECL:
             return False
 
         children = list(cursor.get_children())
 
         if len(children) > 1 and children[0].displayname == 'PyMethodDef':
-            if children[1].kind == clang.cindex.CursorKind.INIT_LIST_EXPR:
+            if children[1].kind == ci.CursorKind.INIT_LIST_EXPR:
                 return True
 
         return False
 
     def _is_py_type_object(self, cursor):
-        if cursor.kind != clang.cindex.CursorKind.VAR_DECL:
+        if cursor.kind != ci.CursorKind.VAR_DECL:
             return False
 
         children = list(cursor.get_children())
@@ -264,15 +265,15 @@ class Writer(object):
         if cursor.kind is None:
             obj = None
 
-        elif cursor.kind == clang.cindex.CursorKind.INIT_LIST_EXPR:
+        elif cursor.kind == ci.CursorKind.INIT_LIST_EXPR:
             obj = [
                 self._python_object_from_cursor_by_kind(c) for c in cursor.get_children()
             ]
 
-        elif cursor.kind == clang.cindex.CursorKind.CSTYLE_CAST_EXPR:
+        elif cursor.kind == ci.CursorKind.CSTYLE_CAST_EXPR:
             obj = list(cursor.get_children())[-1].displayname
 
-        elif cursor.kind == clang.cindex.CursorKind.UNEXPOSED_EXPR:
+        elif cursor.kind == ci.CursorKind.UNEXPOSED_EXPR:
             children = list(cursor.get_children())
             if len(children) > 1:
                 obj = [
@@ -285,10 +286,10 @@ class Writer(object):
             else:
                 obj = ''.join([t.spelling for t in cursor.get_tokens()])
 
-        elif cursor.kind == clang.cindex.CursorKind.STRING_LITERAL:
+        elif cursor.kind == ci.CursorKind.STRING_LITERAL:
             obj = cursor.get_tokens().next().spelling
 
-        elif cursor.kind == clang.cindex.CursorKind.DECL_REF_EXPR:
+        elif cursor.kind == ci.CursorKind.DECL_REF_EXPR:
             obj = cursor.displayname
 
         else:
@@ -326,8 +327,7 @@ class Writer(object):
             self._index_file(path, data)
             hashes[path] = current_hash
 
-
-if __name__ == '__main__':
+def main():
     import sys
 
     if len(sys.argv) > 1:
@@ -339,3 +339,7 @@ if __name__ == '__main__':
     writer = Writer()
     for path in paths:
         writer.create(expanduser(path))
+
+
+if __name__ == '__main__':
+    main()

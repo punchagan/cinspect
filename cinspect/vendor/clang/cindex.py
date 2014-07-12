@@ -65,7 +65,7 @@ call is efficient.
 from ctypes import *
 import collections
 
-import clang.enumerations
+from .enumerations import TokenKinds
 
 # ctypes doesn't implicitly convert c_void_p to the appropriate wrapper
 # object. This is a problem, because it means that from_parameter will see an
@@ -3470,7 +3470,7 @@ class Config:
         return True
 
 def register_enumerations():
-    for name, value in clang.enumerations.TokenKinds:
+    for name, value in TokenKinds:
         TokenKind.register(value, name)
 
 conf = Config()

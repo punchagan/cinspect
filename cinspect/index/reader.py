@@ -8,8 +8,8 @@ from os.path import (
 )
 
 # Local library.
-from cinspect._types import Module, Type
-from serialize import read_index
+from .._types import Module, Type
+from .serialize import read_index
 
 
 class Reader(object):
@@ -19,7 +19,7 @@ class Reader(object):
 
     def __init__(self, db=None):
         if db is None:
-            db = '.index.json'
+            db = expanduser('~/.index.json')
         self.db = abspath(db)
 
     #### 'Reader' protocol ####################################################
