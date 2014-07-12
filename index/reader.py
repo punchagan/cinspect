@@ -3,13 +3,13 @@
 
 # Standard library
 from hashlib import md5
-import json
 from os.path import (
     abspath, exists, expanduser, isdir, join, splitext, walk
 )
 
 # Local library.
 from cinspect._types import Module, Type
+from serialize import read_index
 
 
 class Reader(object):
@@ -44,7 +44,7 @@ class Reader(object):
         if not exists(self.db):
             raise OSError('Index data not found at %s' % self.db)
 
-        indexed_data = self._read_index()
+        indexed_data = read_index(self.db)
 
         name = obj.name
         type_name = obj.type_name
@@ -74,20 +74,5 @@ class Reader(object):
 
             else:
                 data = {'source': '', 'path': ''}
-
-        return data
-
-    def _read_index(self):
-        """ Read the index and return the data.
-
-        Returns an empty dictionary if no index exists.
-
-        """
-
-        if exists(self.db):
-            with open(self.db) as f:
-                data = json.load(f)
-        else:
-            data = {}
 
         return data

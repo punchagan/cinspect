@@ -14,14 +14,14 @@ any number of times to detect any changes in the file, and re-index them.
 
 """
 
-# FIXME:
-# - Clean up the API.  Too many functions thrown around.
 # Standard library
 from hashlib import md5
-import json
 from os.path import (
     abspath, exists, expanduser, isdir, join, splitext, walk
 )
+
+# Local library
+from serialize import read_index, write_index
 
 # 3rd party library.
 import clang.cindex
@@ -53,9 +53,9 @@ class Writer(object):
             self._update_dir_in_index(path)
 
         else:
-            data = self._read_index()
+            data = read_index(self.db)
             self._update_file_in_index(path, data)
-            self._write_index(data)
+            write_index(self.db, data)
 
     #### 'Private' protocol ###################################################
 
@@ -296,20 +296,6 @@ class Writer(object):
 
         return obj
 
-    def _read_index(self):
-        """ Read the index and return the data.
-
-        Returns an empty dictionary if no index exists.
-
-        """
-
-        if exists(self.db):
-            with open(self.db) as f:
-                data = json.load(f)
-        else:
-            data = {}
-
-        return data
 
     def _tag_with_file_path(self, data, path):
         """ Given a dictionary with names mapped to sources, we also add path.
@@ -329,9 +315,9 @@ class Writer(object):
     def _update_dir_in_index(self, path):
         """ Walks through the directory, and indexes all the files in it. """
 
-        data = self._read_index()
+        data = read_index(self.db)
         walk(expanduser(path), self._index_files_in_dir, data)
-        self._write_index(data)
+        write_index(self.db, data)
 
     def _update_file_in_index(self, path, data):
         hashes = data.setdefault('hashes', {})
@@ -339,13 +325,6 @@ class Writer(object):
         if path not in hashes or current_hash != hashes[path]:
             self._index_file(path, data)
             hashes[path] = current_hash
-
-    def _write_index(self, data):
-        """ Read the index and return the data. """
-
-        with open(self.db, 'w') as f:
-            json.dump(data, f, indent=2)
-
 
 
 if __name__ == '__main__':
