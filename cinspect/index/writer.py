@@ -14,6 +14,8 @@ any number of times to detect any changes in the file, and re-index them.
 
 """
 
+from __future__ import absolute_import, print_function
+
 # Standard library
 from hashlib import md5
 from os.path import (
@@ -21,7 +23,7 @@ from os.path import (
 )
 
 # Local library
-from serialize import read_index, write_index
+from .serialize import read_index, write_index
 
 # 3rd party library.
 import cinspect.vendor.clang.cindex as ci
@@ -321,7 +323,7 @@ class Writer(object):
                self._index_file(path, data)
             except RuntimeError:
                 # fixme: need a verbosity setting.
-                print 'Could not parse %s' % path
+                print('Could not parse %s' % path)
             else:
                 hashes[path] = current_hash
 

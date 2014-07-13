@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """ A class to read indexes and get source of specific objects. """
 
+from __future__ import absolute_import, print_function
+
 # Standard library
 from hashlib import md5
 from os.path import (

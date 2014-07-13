@@ -1,5 +1,7 @@
 """ Types for the different kind of objects we want to inspect. """
 
+from __future__ import absolute_import, print_function
+
 import inspect
 import types
 

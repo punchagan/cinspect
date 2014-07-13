@@ -1,9 +1,11 @@
+from __future__ import absolute_import, print_function
+
 import inspect
 import os
 from os.path import expanduser
 
-from index.reader import Reader
-from _types import CInspectObject, PythonObject, get_cinspect_object
+from .index.reader import Reader
+from ._types import CInspectObject, PythonObject, get_cinspect_object
 
 igetsource = inspect.getsource  # hack to allow patching in, inside IPython
 igetfile = inspect.getfile
