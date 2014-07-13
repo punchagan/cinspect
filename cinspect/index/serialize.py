@@ -1,7 +1,10 @@
 from __future__ import absolute_import, print_function
 
 import json
-from os.path import exists
+from os.path import exists, expanduser
+
+# fixme: this should be something more package specific.
+DEFAULT_PATH = expanduser('~/.index.json')
 
 
 def read_index(db):

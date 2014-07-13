@@ -11,7 +11,7 @@ from os.path import (
 
 # Local library.
 from .._types import Module, Type
-from .serialize import read_index
+from .serialize import DEFAULT_PATH, read_index
 
 
 class Reader(object):
@@ -21,7 +21,7 @@ class Reader(object):
 
     def __init__(self, db=None):
         if db is None:
-            db = expanduser('~/.index.json')
+            db = DEFAULT_PATH
         self.db = abspath(db)
 
     #### 'Reader' protocol ####################################################

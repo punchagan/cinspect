@@ -23,7 +23,7 @@ from os.path import (
 )
 
 # Local library
-from .serialize import read_index, write_index
+from .serialize import DEFAULT_PATH, read_index, write_index
 
 # 3rd party library.
 import cinspect.vendor.clang.cindex as ci
@@ -36,8 +36,7 @@ class Writer(object):
 
     def __init__(self, db=None):
         if db is None:
-            # fixme: this path is hardcoded at two places, reader and writer.
-            db = expanduser('~/.index.json')
+            db = DEFAULT_PATH
         self.db = abspath(db)
 
     #### 'Writer' protocol ####################################################
