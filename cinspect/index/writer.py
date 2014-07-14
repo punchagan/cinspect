@@ -359,7 +359,7 @@ def main():
     writer = Writer(clang_args=clang_args, verbose=args.verbose)
 
     for path in args.paths:
-        writer.create(expanduser(path))
+        writer.create(abspath(expanduser(path)))
 
 
 if __name__ == '__main__':
