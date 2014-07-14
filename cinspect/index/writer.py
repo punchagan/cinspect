@@ -34,9 +34,14 @@ class Writer(object):
 
     #### 'Object' protocol ####################################################
 
-    def __init__(self, db=None):
+    def __init__(self, db=None, clang_args=None):
         if db is None:
             db = DEFAULT_PATH
+        if clang_args == None:
+            # fixme: may be we can have a list of generic paths to include...?
+            clang_args = []
+
+        self.clang_args = clang_args
         self.db = abspath(db)
 
     #### 'Writer' protocol ####################################################
@@ -85,15 +90,8 @@ class Writer(object):
 
         """
 
-        # fixme: my specific paths.
-        extra_args = [
-            '-I/usr/lib/clang/3.5/include',
-            '-I/home/punchagan/software/random/cpython/Include',
-            '-I/home/punchagan/software/random/cpython/'
-        ]
-
         index = ci.Index.create()
-        tu = index.parse(path, args=extra_args)
+        tu = index.parse(path, args=self.clang_args)
         diagnostics = list(tu.diagnostics)
 
         # fixme: we need to actually see what serverity level is bad ...
@@ -328,15 +326,26 @@ class Writer(object):
 
 def main():
     import sys
+    import argparse
 
-    if len(sys.argv) > 1:
-        paths = sys.argv[1:]
+    parser = argparse.ArgumentParser(
+        description='Index the given paths for source code inspection.',
+    )
+    parser.add_argument('paths', nargs='+', help='paths to be indexed')
 
-    else:
-        paths = ['~/software/random/cpython']
+    args, clang_args  = parser.parse_known_args()
 
-    writer = Writer()
-    for path in paths:
+    # fixme: my specific paths.
+    clang_args += [
+        '-I/usr/lib/clang/3.5/include',
+        # fixme: auto detect headers based on package?
+        '-I/home/punchagan/software/random/cpython/Include',
+        '-I/home/punchagan/software/random/cpython/'
+    ]
+
+    writer = Writer(clang_args=clang_args)
+
+    for path in args.paths:
         writer.create(expanduser(path))
 
 
