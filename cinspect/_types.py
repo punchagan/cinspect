@@ -105,18 +105,8 @@ def get_cinspect_object(obj):
     elif inspect.isclass(obj):
         return Type(obj)
 
-    elif is_builtin_type_instance(obj):
+    elif inspect.isclass(type(obj)):
         return Type(obj.__class__)
 
     else:
         raise NotImplementedError
-
-
-def is_builtin_type_instance(obj):
-    # fixme: is there a better way to do this?
-    # fixme: there are missing builtins, here!
-    return (
-        isinstance(obj, types.DictType) or
-        isinstance(obj, types.ListType) or
-        isinstance(obj, set)
-    )
