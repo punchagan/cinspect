@@ -337,14 +337,8 @@ def main():
 
     args, clang_args  = parser.parse_known_args()
 
-    # fixme: my specific paths.
-    clang_args += [
-        '-I/usr/lib/clang/3.5/include',
-        # fixme: auto detect headers based on package?
-        '-I/home/punchagan/software/random/cpython/Include',
-        '-I/home/punchagan/software/random/cpython/'
-    ]
-
+    # fixme: clang include dirs should be "located", and added.
+    # fixme: auto detect headers based on package?
     writer = Writer(clang_args=clang_args)
 
     for path in args.paths:
