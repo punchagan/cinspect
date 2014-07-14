@@ -21,6 +21,7 @@ from hashlib import md5
 from os.path import (
     abspath, exists, expanduser, isdir, join, splitext, walk
 )
+import pprint
 
 # Local library
 from .serialize import DEFAULT_PATH, read_index, write_index
@@ -34,15 +35,18 @@ class Writer(object):
 
     #### 'Object' protocol ####################################################
 
-    def __init__(self, db=None, clang_args=None):
+    def __init__(self, db=None, clang_args=None, verbose=False):
         if db is None:
             db = DEFAULT_PATH
         if clang_args == None:
             # fixme: may be we can have a list of generic paths to include...?
             clang_args = []
+        if verbose:
+            clang_args.insert(0, '-v')
 
         self.clang_args = clang_args
         self.db = abspath(db)
+        self.verbose = verbose
 
     #### 'Writer' protocol ####################################################
 
@@ -98,9 +102,8 @@ class Writer(object):
         ]
 
         if len(diagnostics) > 0:
-            import pprint
-            # fixme: we need some kind of verbosity level.
-            pprint.pprint(diagnostics)
+            if self.verbose:
+                pprint.pprint(diagnostics)
             raise RuntimeError('There were parse errors')
 
         return tu
@@ -321,8 +324,8 @@ class Writer(object):
             try:
                self._index_file(path, data)
             except RuntimeError:
-                # fixme: need a verbosity setting.
-                print('Could not parse %s' % path)
+                if self.verbose:
+                    print('Could not parse %s' % path)
             else:
                 hashes[path] = current_hash
 
@@ -334,12 +337,15 @@ def main():
         description='Index the given paths for source code inspection.',
     )
     parser.add_argument('paths', nargs='+', help='paths to be indexed')
+    parser.add_argument(
+        '--verbose', action='store_true', help='set for verbose output'
+    )
 
     args, clang_args  = parser.parse_known_args()
 
     # fixme: clang include dirs should be "located", and added.
     # fixme: auto detect headers based on package?
-    writer = Writer(clang_args=clang_args)
+    writer = Writer(clang_args=clang_args, verbose=args.verbose)
 
     for path in args.paths:
         writer.create(expanduser(path))
