@@ -27,7 +27,7 @@ will not require `libclang`.
 Something like the following should do it, depending on which system you are
 on.
 
-    sudo apt-get install libclang1-3.5
+    sudo apt-get install libclang1-3.5 libclang-common-3.5
 
 The easiest way to install the package currently is to run (in a virtual environment).
 
@@ -52,7 +52,12 @@ The indexer is exposed as the `cinspect-index` command.  You can run it as follo
 
 Essentially, you tell `cinspect-cindex` the path to the directory you wish to
 index.  Since we use `libclang` to index the sources, any additional arguments
-you pass to this script are passed on to `libclang`.
+you pass to this script are passed on to `libclang`.  To get the indexer to
+work, you will have to make sure that
+
+1. `libclang` is able to find its own includes.
+2. You pass-in the include dirs that the project you are indexing needs, to
+compile.
 
 The indexes are currently saved at `~/.index.json`.  Once you have created the
 indexes, you can use the `getsource` or `getfile` functions exposed by
