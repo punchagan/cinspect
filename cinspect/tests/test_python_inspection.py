@@ -1,8 +1,17 @@
 from __future__ import absolute_import, print_function
 
+# Standard library
 import inspect
+from os.path import join
+import tempfile
+from shutil import rmtree
+import subprocess
 import unittest
 
+# 3rd-party library
+from nose.plugins.attrib import attr
+
+# Local library
 from cinspect import getfile, getsource
 from cinspect._types import BuiltinMethod, MethodDescriptor
 
@@ -16,7 +25,68 @@ import audioop
 # fixme: Should we run tests on a dummy module of our own, not cpython?
 
 
-class TestGetSource(unittest.TestCase):
+@attr(speed='slow')
+class TestPythonInspection(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.temp_dir = tempfile.mkdtemp()
+        cls.python_dir = join(cls.temp_dir, 'Python-2.7.8')
+        cls.db = join(cls.temp_dir, 'DB')
+        cls._monkey_patch()
+        cls._download_and_extract_python_sources()
+        cls._build_python()
+        cls._index_sources()
+
+    # fixme: think of a better name, if not a better way of doing this.
+    @classmethod
+    def _monkey_patch(cls):
+        import cinspect.index.reader as R
+        import cinspect.index.writer as W
+        R.DEFAULT_PATH = W.DEFAULT_PATH = cls.db
+
+    @classmethod
+    def _download_and_extract_python_sources(cls):
+        url = 'https://www.python.org/ftp/python/2.7.8/Python-2.7.8.tgz'
+        commands = [
+            ['wget', '-c', url],
+            ['tar', '-xzf', 'Python-2.7.8.tgz'],
+        ]
+
+        for command in commands:
+            subprocess.check_call(command, cwd=cls.temp_dir)
+
+    @classmethod
+    def _build_python(cls):
+        commands = [
+            ['./configure'],
+            # ['make'],
+        ]
+
+        for command in commands:
+            subprocess.check_call(command, cwd=cls.python_dir)
+
+    @classmethod
+    def _index_sources(cls):
+        from cinspect.index.writer import Writer
+        clang_args = [
+            '-I%s' % cls.python_dir,
+            '-I%s' % join(cls.python_dir, 'Include')
+        ]
+        # fixme: gottu remove this!
+        clang_args.insert(0, '-I/usr/lib/clang/3.5/include')
+        writer = Writer(clang_args=clang_args)
+        writer.create(cls.python_dir)
+
+    @classmethod
+    def _(cls):
+        url = 'https://www.python.org/ftp/python/2.7.8/Python-2.7.8.tgz'
+        command = ['wget', '-c', url]
+        subprocess.check_call(command, cwd=cls.temp_dir)
+
+    @classmethod
+    def tearDownClass(cls):
+        rmtree(cls.temp_dir)
 
     def test_should_get_source_for_builtin_functions(self):
         # Given
@@ -71,7 +141,6 @@ class TestGetSource(unittest.TestCase):
 
         # Then
         self.assertTrue(path.endswith('gcmodule.c'))
-
 
     def test_should_get_source_for_module(self):
         # Given
