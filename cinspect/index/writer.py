@@ -92,9 +92,11 @@ class Writer(object):
 
         index = ci.Index.create()
         tu = index.parse(path, args=self.clang_args)
-        diagnostics = list(tu.diagnostics)
+        diagnostics = [
+            diagnostic for diagnostic in list(tu.diagnostics)
+            if diagnostic.severity > 2
+        ]
 
-        # fixme: we need to actually see what serverity level is bad ...
         if len(diagnostics) > 0:
             import pprint
             # fixme: we need some kind of verbosity level.
