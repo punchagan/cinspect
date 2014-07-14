@@ -151,9 +151,7 @@ class Writer(object):
             method_names.update(self._parse_py_method_def(cursor))
 
         elif self._is_py_type_object(cursor):
-            objects.update(
-                self._tag_with_file_path(self._parse_py_type_object(cursor), path)
-            )
+            objects.update(self._parse_py_type_object(cursor, path))
 
         elif self._is_py_init_module(cursor):
             modules.update(self._parse_py_init_module(cursor, path))
@@ -254,13 +252,25 @@ class Writer(object):
 
         return {cursor.displayname: method_map}
 
-    def _parse_py_type_object(self, cursor):
+    def _parse_py_type_object(self, cursor, path):
         children = list(cursor.get_children())
         parsed_definition = self._python_object_from_cursor_by_kind(children[1])
         if parsed_definition is not None and len(parsed_definition) >= 4:
             name = parsed_definition[3]
+            # fixme: subclassing and inheriting is not handled, yet.
+            references = filter(
+                lambda x: isinstance(x, basestring),
+                filter(None, parsed_definition[4:])
+            )
             if isinstance(name, basestring) and name.startswith('"') and name.endswith('"'):
-                return {name[1:-1]: self._get_code_from_cursor(cursor)}
+                data = {
+                    name[1:-1]: {
+                        'source': self._get_code_from_cursor(cursor),
+                        'path': path,
+                        'references': references
+                    }
+                }
+                return data
 
         return {}
 

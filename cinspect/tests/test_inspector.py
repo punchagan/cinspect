@@ -145,7 +145,7 @@ class TestGetSource(unittest.TestCase):
 
             getattr(kls(), method_name)
 
-            for kls in (list, set, dict)
+            for kls in (dict, list, set)
             for method_name in dir(kls())
 
             # fixme: fix code to work for [].__add__
@@ -157,7 +157,7 @@ class TestGetSource(unittest.TestCase):
 
             getattr(kls, method_name)
 
-            for kls in (list, set, dict)
+            for kls in (dict, list, set)
             for method_name in dir(kls())
 
             # fixme: fix code to work for [].__add__

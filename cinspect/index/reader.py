@@ -54,13 +54,16 @@ class Reader(object):
         type_name = obj.type_name
         module_name = obj.module
 
+        dummy_data = {'source': '', 'path': ''}
+
+
         if isinstance(obj, Type):
             objects = indexed_data.get('objects', {})
-            data = objects.get(name, '')
+            data = objects.get(name, dummy_data)
 
         elif isinstance(obj, Module):
             modules = indexed_data.get('modules', {})
-            data = modules.get(name, '')
+            data = modules.get(name, dummy_data)
 
         elif isinstance(obj, BuiltinFunction):
             module = indexed_data.get('modules', {}).get(module_name, {})
@@ -75,22 +78,23 @@ class Reader(object):
                     break
             else:
                 method_name = ''
-            data = indexed_data.get('methods', {}).get(method_name, '')
+            data = indexed_data.get('methods', {}).get(method_name, dummy_data)
 
         elif isinstance(obj, BuiltinMethod) or isinstance(obj, MethodDescriptor):
+            type_ = indexed_data.get('objects', {}).get(type_name, {})
+            # fixme: if we fail to get source for method from references, we
+            # could look in all the maps.
+            references = type_.get('references', [])
             method_names = indexed_data.get('method_names', {})
-            # fixme: Use the information from the module/object on which
-            # mapping to look in!
-            for _, group in method_names.iteritems():
-                if name in group:
-                    if type_name is not None and not group[name].startswith(type_name):
-                        continue
-                    method_name = group[name]
-                    data = indexed_data.get('methods', {}).get(method_name, '')
-                    break
-
+            for mmap in references:
+                if mmap in method_names:
+                    name_mapping = method_names[mmap]
+                    if name in name_mapping:
+                        method_name = name_mapping[name]
+                        break
             else:
-                data = {'source': '', 'path': ''}
+                method_name = ''
+            data = indexed_data.get('methods', {}).get(method_name, dummy_data)
 
         else:
             raise RuntimeError('Cannot get source for %s' % obj)
