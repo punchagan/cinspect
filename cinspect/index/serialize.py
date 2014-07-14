@@ -1,5 +1,6 @@
 from __future__ import absolute_import, print_function
 
+# fixme: it might be better to use an sqlitedb instead
 import json
 from os.path import exists, expanduser
 
