@@ -143,9 +143,7 @@ class Writer(object):
 
 
         if self._is_function(cursor):
-            methods.update(
-                self._tag_with_file_path(self._parse_function(cursor), path)
-            )
+            methods.update(self._parse_function(cursor, path))
 
         elif self._is_py_method_def(cursor):
             method_names.update(self._parse_py_method_def(cursor))
@@ -208,8 +206,14 @@ class Writer(object):
 
         return text.decode('utf8', 'replace')
 
-    def _parse_function(self, cursor):
-        return {cursor.spelling: self._get_code_from_cursor(cursor)}
+    def _parse_function(self, cursor, path):
+        data = {
+            cursor.spelling: {
+                'source': self._get_code_from_cursor(cursor),
+                'path': path,
+            }
+        }
+        return data
 
     def _parse_py_init_module(self, cursor, path):
         children = list(cursor.get_children())
@@ -316,22 +320,6 @@ class Writer(object):
             obj = None
 
         return obj
-
-
-    def _tag_with_file_path(self, data, path):
-        """ Given a dictionary with names mapped to sources, we also add path.
-
-        """
-
-        mapping = {}
-
-        for key, value in data.iteritems():
-            if isinstance(value, basestring):
-                mapping[key] = {'source': value, 'path': path}
-            else:
-                mapping[key] = self._tag_with_file_path(value, path)
-
-        return mapping
 
     def _update_dir_in_index(self, path):
         """ Walks through the directory, and indexes all the files in it. """
