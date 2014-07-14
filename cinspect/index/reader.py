@@ -10,7 +10,9 @@ from os.path import (
 )
 
 # Local library.
-from .._types import Module, Type
+from .._types import (
+    BuiltinFunction, BuiltinMethod, MethodDescriptor, Module, Type
+)
 from .serialize import DEFAULT_PATH, read_index
 
 
@@ -50,17 +52,32 @@ class Reader(object):
 
         name = obj.name
         type_name = obj.type_name
-        module = obj.module
+        module_name = obj.module
 
         if isinstance(obj, Type):
             objects = indexed_data.get('objects', {})
             data = objects.get(name, '')
 
         elif isinstance(obj, Module):
-            objects = indexed_data.get('modules', {})
-            data = objects.get(name, '')
+            modules = indexed_data.get('modules', {})
+            data = modules.get(name, '')
 
-        else:
+        elif isinstance(obj, BuiltinFunction):
+            module = indexed_data.get('modules', {}).get(module_name, {})
+            # fixme: if we fail to get method_maps for the module, we could
+            # look in all the maps.
+            method_maps = module.get('method_maps', [])
+            method_names = indexed_data.get('method_names', {})
+            for mmap in method_maps:
+                name_mapping = method_names[mmap]
+                if name in name_mapping:
+                    method_name = name_mapping[name]
+                    break
+            else:
+                method_name = ''
+            data = indexed_data.get('methods', {}).get(method_name, '')
+
+        elif isinstance(obj, BuiltinMethod) or isinstance(obj, MethodDescriptor):
             method_names = indexed_data.get('method_names', {})
             # fixme: Use the information from the module/object on which
             # mapping to look in!
@@ -68,13 +85,14 @@ class Reader(object):
                 if name in group:
                     if type_name is not None and not group[name].startswith(type_name):
                         continue
-                    elif module is not None and not group[name].startswith(module.strip('_')):
-                        continue
                     method_name = group[name]
                     data = indexed_data.get('methods', {}).get(method_name, '')
                     break
 
             else:
                 data = {'source': '', 'path': ''}
+
+        else:
+            raise RuntimeError('Cannot get source for %s' % obj)
 
         return data

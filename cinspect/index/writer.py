@@ -156,9 +156,7 @@ class Writer(object):
             )
 
         elif self._is_py_init_module(cursor):
-            modules.update(
-                self._tag_with_file_path(self._parse_py_init_module(cursor), path)
-            )
+            modules.update(self._parse_py_init_module(cursor, path))
 
         else:
             # We don't care about any other types of nodes (yet)
@@ -215,13 +213,28 @@ class Writer(object):
     def _parse_function(self, cursor):
         return {cursor.spelling: self._get_code_from_cursor(cursor)}
 
-    def _parse_py_init_module(self, cursor):
-        name_cursor = list(cursor.get_children())[1]
+    def _parse_py_init_module(self, cursor, path):
+        children = list(cursor.get_children())
+        if len(children) > 2:
+            method_map_name = children[2].spelling
+
+        else:
+            method_map_name = None
+
+        name_cursor = children[1]
         tokens = list(name_cursor.get_tokens())
+
         if len(tokens) > 0:
             name = tokens[0].spelling
             if isinstance(name, basestring) and name.startswith('"') and name.endswith('"'):
-                return {name[1:-1]: self._get_code_from_cursor(cursor.translation_unit.cursor)}
+                data = {
+                    name[1:-1]: {
+                        'source': self._get_code_from_cursor(cursor.translation_unit.cursor),
+                        'path': path,
+                        'method_maps': [method_map_name],
+                    }
+                }
+                return data
 
         return {}
 
