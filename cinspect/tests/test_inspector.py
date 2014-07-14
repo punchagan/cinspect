@@ -3,8 +3,8 @@ from __future__ import absolute_import, print_function
 import inspect
 import unittest
 
-from cinspect.cinspect import getfile, getsource
-from cinspect.cinspect._types import BuiltinMethod, MethodDescriptor
+from cinspect import getfile, getsource
+from cinspect._types import BuiltinMethod, MethodDescriptor
 
 # Imports for testing
 import gc
