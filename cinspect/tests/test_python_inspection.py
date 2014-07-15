@@ -20,8 +20,7 @@ import gc
 import audioop
 
 
-# fixme: Add faster tests using a dummy module, not cpython!
-@attr(speed='slow')
+@attr('slow')
 class TestPythonInspection(unittest.TestCase):
 
     #### 'TestCase' protocol ##################################################
