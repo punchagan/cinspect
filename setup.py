@@ -19,7 +19,9 @@ packages = [
     'cinspect.vendor.clang',
 ]
 
-package_data = {}
+package_data = {
+    'cinspect.tests': ['data/*.md', 'data/*.c', 'data/*.py'],
+}
 
 setup(
     name="cinspect",
