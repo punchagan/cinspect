@@ -18,6 +18,9 @@ bindings to parse the C-code and generate indexes out of it.
 
 ## Installation and Usage
 
+NOTE: `cinspect` source code is only Python2 compatible.  We have not looked at
+the compatibility of libclang's Python bindings with Python3.x.
+
 ### Installation
 
 `cinspect` depends on having `libclang` installed in the system, for indexing
