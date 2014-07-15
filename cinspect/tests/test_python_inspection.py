@@ -24,64 +24,23 @@ import audioop
 @attr(speed='slow')
 class TestPythonInspection(unittest.TestCase):
 
+    #### 'TestCase' protocol ##################################################
+
     @classmethod
     def setUpClass(cls):
         cls.temp_dir = tempfile.mkdtemp()
         cls.python_dir = join(cls.temp_dir, 'Python-2.7.8')
         cls.db = join(cls.temp_dir, 'DB')
-        cls._monkey_patch()
+        cls._set_db_path()
         cls._download_and_extract_python_sources()
-        cls._build_python()
+        cls._configure_python()
         cls._index_sources()
-
-    # fixme: think of a better name, if not a better way of doing this.
-    @classmethod
-    def _monkey_patch(cls):
-        import cinspect.index.reader as R
-        import cinspect.index.writer as W
-        R.DEFAULT_PATH = W.DEFAULT_PATH = cls.db
-
-    @classmethod
-    def _download_and_extract_python_sources(cls):
-        url = 'https://www.python.org/ftp/python/2.7.8/Python-2.7.8.tgz'
-        commands = [
-            ['wget', '-c', url],
-            ['tar', '-xzf', 'Python-2.7.8.tgz'],
-        ]
-
-        for command in commands:
-            subprocess.check_call(command, cwd=cls.temp_dir)
-
-    @classmethod
-    def _build_python(cls):
-        commands = [
-            ['./configure'],
-            # ['make'],
-        ]
-
-        for command in commands:
-            subprocess.check_call(command, cwd=cls.python_dir)
-
-    @classmethod
-    def _index_sources(cls):
-        from cinspect.index.writer import Writer
-        from cinspect.clang_utils import get_libclang_headers
-        clang_args = get_libclang_headers() + [
-            '-I%s' % cls.python_dir,
-            '-I%s' % join(cls.python_dir, 'Include')
-        ]
-        writer = Writer(clang_args=clang_args)
-        writer.create(cls.python_dir)
-
-    @classmethod
-    def _(cls):
-        url = 'https://www.python.org/ftp/python/2.7.8/Python-2.7.8.tgz'
-        command = ['wget', '-c', url]
-        subprocess.check_call(command, cwd=cls.temp_dir)
 
     @classmethod
     def tearDownClass(cls):
         rmtree(cls.temp_dir)
+
+    #### Tests ################################################################
 
     def test_should_get_source_for_builtin_functions(self):
         # Given
@@ -198,6 +157,21 @@ class TestPythonInspection(unittest.TestCase):
 
     #### Private protocol #####################################################
 
+    @classmethod
+    def _configure_python(cls):
+        subprocess.check_call(['./configure'], cwd=cls.python_dir)
+
+    @classmethod
+    def _download_and_extract_python_sources(cls):
+        url = 'https://www.python.org/ftp/python/2.7.8/Python-2.7.8.tgz'
+        commands = [
+            ['wget', '-c', url],
+            ['tar', '-xzf', 'Python-2.7.8.tgz'],
+        ]
+
+        for command in commands:
+            subprocess.check_call(command, cwd=cls.temp_dir)
+
     def _get_builtin_functions(self):
         ns = {}
         exec 'from __builtin__ import *' in ns
@@ -227,6 +201,23 @@ class TestPythonInspection(unittest.TestCase):
             # fixme: fix code to work for [].__add__
             if not method_name.startswith('_')
         ]
+
+    @classmethod
+    def _index_sources(cls):
+        from cinspect.index.writer import Writer
+        from cinspect.clang_utils import get_libclang_headers
+        clang_args = get_libclang_headers() + [
+            '-I%s' % cls.python_dir,
+            '-I%s' % join(cls.python_dir, 'Include')
+        ]
+        writer = Writer(clang_args=clang_args)
+        writer.create(cls.python_dir)
+
+    @classmethod
+    def _set_db_path(cls):
+        import cinspect.index.reader as R
+        import cinspect.index.writer as W
+        R.DEFAULT_PATH = W.DEFAULT_PATH = cls.db
 
 
 if __name__ == '__main__':
