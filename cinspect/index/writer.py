@@ -23,11 +23,12 @@ from os.path import (
 )
 import pprint
 
-# Local library
-from .serialize import DEFAULT_PATH, read_index, write_index
-
 # 3rd party library.
 import cinspect.vendor.clang.cindex as ci
+
+# Local library
+from .serialize import DEFAULT_PATH, read_index, write_index
+from cinspect.clang_utils import can_find_clang_headers, get_libclang_headers
 
 
 class Writer(object):
@@ -39,7 +40,6 @@ class Writer(object):
         if db is None:
             db = DEFAULT_PATH
         if clang_args == None:
-            # fixme: may be we can have a list of generic paths to include...?
             clang_args = []
         if verbose:
             clang_args.insert(0, '-v')
@@ -353,8 +353,9 @@ def main():
     )
 
     args, clang_args  = parser.parse_known_args()
+    if not can_find_clang_headers(clang_args):
+        clang_args = get_libclang_headers() + clang_args
 
-    # fixme: clang include dirs should be "located", and added.
     # fixme: auto detect headers based on package?
     writer = Writer(clang_args=clang_args, verbose=args.verbose)
 

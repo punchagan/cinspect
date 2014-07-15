@@ -19,12 +19,8 @@ from cinspect._types import BuiltinMethod, MethodDescriptor
 import gc
 import audioop
 
-# fixme: the index can be messed up, causing the tests to fail.  We should use
-# our own index.  But, this would take very long!
 
-# fixme: Should we run tests on a dummy module of our own, not cpython?
-
-
+# fixme: Add faster tests using a dummy module, not cpython!
 @attr(speed='slow')
 class TestPythonInspection(unittest.TestCase):
 
@@ -69,12 +65,11 @@ class TestPythonInspection(unittest.TestCase):
     @classmethod
     def _index_sources(cls):
         from cinspect.index.writer import Writer
-        clang_args = [
+        from cinspect.clang_utils import get_libclang_headers
+        clang_args = get_libclang_headers() + [
             '-I%s' % cls.python_dir,
             '-I%s' % join(cls.python_dir, 'Include')
         ]
-        # fixme: gottu remove this!
-        clang_args.insert(0, '-I/usr/lib/clang/3.5/include')
         writer = Writer(clang_args=clang_args)
         writer.create(cls.python_dir)
 
