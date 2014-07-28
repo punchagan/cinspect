@@ -351,10 +351,16 @@ def main():
     parser.add_argument(
         '--verbose', action='store_true', help='set for verbose output'
     )
+    parser.add_argument('-c', '--libclang', help='dynamic library location')
 
     args, clang_args  = parser.parse_known_args()
+    if args.libclang is not None:
+        ci.Config.set_library_file(args.libclang)
     if not can_find_clang_headers(clang_args):
+        print('could not find clang headers, guessing')
         clang_args = get_libclang_headers() + clang_args
+        print('our guess:')
+        pprint.pprint(clang_args)
 
     # fixme: auto detect headers based on package?
     writer = Writer(clang_args=clang_args, verbose=args.verbose)
