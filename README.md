@@ -1,5 +1,6 @@
 cinspect
 ========
+[![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/punchagan/cinspect?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 `cinspect` is an attempt to extend Python's built-in `inspect` module to add
 "inspection" for Python's builtins and other objects not written in Python.
