@@ -2,9 +2,9 @@ from __future__ import absolute_import, print_function
 
 # Standard library
 import inspect
-from os.path import join
+from os.path import abspath, dirname, exists, join
 import tempfile
-from shutil import rmtree
+from shutil import copy, rmtree
 import subprocess
 import unittest
 
@@ -19,6 +19,8 @@ from cinspect._types import BuiltinMethod, MethodDescriptor
 import gc
 import audioop
 
+DATA = join(dirname(abspath(__file__)), 'data')
+
 
 @attr('slow')
 class TestPythonInspection(unittest.TestCase):
@@ -31,7 +33,7 @@ class TestPythonInspection(unittest.TestCase):
         cls.python_dir = join(cls.temp_dir, 'Python-2.7.8')
         cls.db = join(cls.temp_dir, 'DB')
         cls._set_db_path()
-        cls._download_and_extract_python_sources()
+        cls._get_and_extract_python_sources()
         cls._configure_python()
         cls._index_sources()
 
@@ -161,15 +163,19 @@ class TestPythonInspection(unittest.TestCase):
         subprocess.check_call(['./configure'], cwd=cls.python_dir)
 
     @classmethod
-    def _download_and_extract_python_sources(cls):
+    def _download_python_sources(cls, to_dir):
         url = 'https://www.python.org/ftp/python/2.7.8/Python-2.7.8.tgz'
-        commands = [
-            ['wget', '-c', url],
-            ['tar', '-xzf', 'Python-2.7.8.tgz'],
-        ]
+        # fixme: convert to python?
+        subprocess.check_call(['wget', '-c', url], cwd=to_dir)
 
-        for command in commands:
-            subprocess.check_call(command, cwd=cls.temp_dir)
+    @classmethod
+    def _get_and_extract_python_sources(cls):
+        source = join(DATA, 'Python-2.7.8.tgz')
+        if not exists(source):
+            cls._download_python_sources(DATA)
+        copy(source, cls.temp_dir)
+        # fixme: convert to python?
+        subprocess.check_call(['tar', '-xzf', 'Python-2.7.8.tgz'], cwd=cls.temp_dir)
 
     def _get_builtin_functions(self):
         ns = {}
