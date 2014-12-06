@@ -311,7 +311,7 @@ class Writer(object):
                 obj = ''.join([t.spelling for t in cursor.get_tokens()])
 
         elif cursor.kind == ci.CursorKind.STRING_LITERAL:
-            obj = cursor.get_tokens().next().spelling
+            obj = cursor.spelling
 
         elif cursor.kind == ci.CursorKind.DECL_REF_EXPR:
             obj = cursor.displayname
