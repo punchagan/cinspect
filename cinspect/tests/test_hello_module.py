@@ -1,8 +1,6 @@
 from __future__ import absolute_import, print_function
 
 # Standard library
-import inspect
-import os
 from os.path import abspath, dirname, join
 import tempfile
 import re
@@ -12,8 +10,7 @@ import sys
 import unittest
 
 # Local library
-from cinspect import getfile, getsource
-from cinspect._types import BuiltinMethod, MethodDescriptor
+from cinspect import getsource
 
 
 class TestHelloModule(unittest.TestCase):

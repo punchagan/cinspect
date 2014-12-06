@@ -5,19 +5,20 @@ import os
 from os.path import expanduser
 
 from .index.reader import Reader
+from ._patch_helpers import inspect_restored
 from ._types import CInspectObject, PythonObject, get_cinspect_object
 
-igetsource = inspect.getsource  # hack to allow patching in, inside IPython
-igetfile = inspect.getfile
 
 SOURCE_DIR = expanduser(os.getenv('PY_SOURCE_DIR', '~/software/random/cpython'))
+
 
 def getfile(obj):
     if not isinstance(obj, CInspectObject):
         obj = get_cinspect_object(obj)
 
     if isinstance(obj, PythonObject):
-        path = igetfile(obj.obj)
+        with inspect_restored():
+            path = inspect.getfile(obj.obj)
 
     else:
         reader = Reader()
@@ -25,13 +26,14 @@ def getfile(obj):
 
     return path
 
-def getsource(obj):
 
+def getsource(obj):
     if not isinstance(obj, CInspectObject):
         obj = get_cinspect_object(obj)
 
     if isinstance(obj, PythonObject):
-        source = igetsource(obj.obj)
+        with inspect_restored():
+            source = inspect.getsource(obj.obj)
 
     else:
         reader = Reader()

@@ -3,10 +3,8 @@
 from __future__ import absolute_import, print_function
 
 import inspect
-import types
 
-igetsource = inspect.getsource  # hack to allow patching in, inside IPython
-igetfile = inspect.getfile
+from ._patch_helpers import inspect_restored
 
 
 class CInspectObject(object):
@@ -80,12 +78,24 @@ def get_cinspect_object(obj):
     """ Returns the object wrapped in the appropriate CInspectObject class. """
 
     try:
-        igetsource(obj)
-    except (TypeError, IOError) as e:
-        # The code to deal with this case is below
-        pass
+        with inspect_restored():
+            inspect.getsource(obj)
+
+    except (TypeError, IOError):
+        wrapped = _get_cinspect_object(obj)
+
     else:
-        return PythonObject(obj)
+        wrapped = PythonObject(obj)
+
+    return wrapped
+
+
+def _get_cinspect_object(obj):
+    """ Return the object wrapped in the appropriate CInspectObject class.
+
+    This function expects that the object is not a pure-Python object.
+
+    """
 
     if inspect.isbuiltin(obj):
         if obj.__module__ is None:

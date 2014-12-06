@@ -13,14 +13,17 @@ def can_find_clang_headers(clang_args):
     try:
         index = CI.Index.create()
         tu = index.parse("test.c", clang_args, [currentFile], flags)
-    except CI.TranslationUnitLoadError, e:
+
+    except CI.TranslationUnitLoadError:
         return False
+
     return len(tu.diagnostics) == 0
 
 
 def get_libclang_headers():
     try:
         paths = _ask_clang()
+
     except OSError:
         paths = _guess_paths()
 
@@ -41,6 +44,7 @@ def _guess_paths(library_path=None):
 
     This code is very similar to the code in
     https://github.com/Rip-Rip/clang_complete/blob/master/plugin/libclang.py
+
     """
 
     if library_path is None:
