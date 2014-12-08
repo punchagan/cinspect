@@ -4,10 +4,7 @@
 from __future__ import absolute_import, print_function
 
 # Standard library
-from hashlib import md5
-from os.path import (
-    abspath, exists, expanduser, isdir, join, splitext, walk
-)
+from os.path import abspath, exists
 
 # Local library.
 from .._types import (
