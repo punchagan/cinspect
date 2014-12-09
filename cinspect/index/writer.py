@@ -73,17 +73,14 @@ class Writer(object):
     def _get_code_from_cursor(self, cursor):
         """ Return a string with the code, given a cursor object. """
 
-        start, end = cursor.extent.begin_int_data, cursor.extent.end_int_data
+        start, end = cursor.extent.start.offset, cursor.extent.end.offset
 
         file = cursor.location.file
         path = file.name if file is not None else cursor.translation_unit.spelling
 
         with open(path) as f:
-            # fixme: I have no idea why we are being offset by 2.
-            # Offset of 1, could be because the marker is after the first char,
-            # another offset of 1 could be because the indexing starts from 1?
-            f.read(start-2)
-            text = self._make_unicode(f.read(end-start))
+            f.read(start)
+            text = self._make_unicode(f.read(end-start+1))
 
         return text
 
