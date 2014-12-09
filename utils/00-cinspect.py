@@ -3,17 +3,13 @@
 # Place this file in ~/.ipython/<PROFILE_DIR>/startup to patch your IPython to
 # use cinspect for the code inspection.
 
-import inspect
-
 from cinspect import getsource, getfile
 
 import IPython.core.oinspect as OI
 from IPython.utils.py3compat import cast_unicode
 
 old_find_file = OI.find_file
-old_getsource = inspect.getsource
-
-inspect.getsource = getsource
+old_getsource = OI.getsource
 
 def patch_find_file(obj):
     fname = old_find_file(obj)
@@ -24,20 +20,12 @@ def patch_find_file(obj):
             pass
     return fname
 
+def patch_getsource(obj, is_binary=False):
+    if is_binary:
+        return cast_unicode(getsource(obj))
+
+    else:
+        return old_getsource(obj, is_binary)
+
 OI.find_file = patch_find_file
-
-ipy = get_ipython()
-
-old_format = ipy.inspector.format
-
-def c_format(raw, *args, **kwargs):
-    return raw
-
-def my_format(raw, out = None, scheme = ''):
-    try:
-        output = old_format(raw, out, scheme)
-    except:
-        output = raw
-    return output
-
-ipy.inspector.format = my_format
+OI.getsource = patch_getsource
