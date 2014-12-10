@@ -18,8 +18,15 @@ bindings to parse the C-code and generate indexes out of it.
 
 ## Installation and Usage
 
-NOTE: `cinspect` source code is only Python2 compatible.  We have not looked at
-the compatibility of libclang's Python bindings with Python3.x.
+### Python 3x vs 2x
+
+`cinspect`'s indexing tool only works with Python 2.x. The indexing tool
+`cinspect-index` is not made available in Python 3.x, since libclang's Python
+bindings are not Python 3.x compatible.
+
+However, `cinspect`'s index lookup functionality is Python 3.x compatible.  So,
+one could index the required version's code using Python 2.x and use those
+indexes with a version of Python 3.x.
 
 ### Installation
 
@@ -65,6 +72,10 @@ compile.
 The indexes are currently saved at `~/.index.json`.  Once you have created the
 indexes, you can use the `getsource` or `getfile` functions exposed by
 `cinspect`, to inspect your objects.
+
+The version of the source code being indexed is by default assumed to be the
+same as the version of the Python being run. Use the `--version` flag to change
+this, if required.
 
 ### IPython monkey-patch startup script.
 
