@@ -24,9 +24,8 @@ bindings to parse the C-code and generate indexes out of it.
 `cinspect-index` is not made available in Python 3.x, since libclang's Python
 bindings are not Python 3.x compatible.
 
-However, `cinspect`'s index lookup functionality is Python 3.x compatible.  So,
-one could index the required version's code using Python 2.x and use those
-indexes with a version of Python 3.x.
+However, `cinspect`'s index lookup functionality is Python 3.x compatible.  See
+the section [Downloading indexes](#downloading-indexes)
 
 ### Installation
 
@@ -46,11 +45,27 @@ The easiest way to install the package currently is to run (in a virtual environ
 The `cinspect` module currently exposes only a `getsource` and `getfile`, which
 are similar to equivalent functions in the built-in `inspect` module.
 
+### Downloading indexes
+
+Index files for some of the most common versions of Python are made available
+for download, so you do not have to do the indexing yourself.  These indexes
+are available in the
+[cinspect-data](https://github.com/punchagan/cinspect-data) repository.
+
+You can download these indexes by simply
+
+    cinspect-download
+
+### Usage
+
+Once you have created/downloaded the indexes, you can use the `getsource` or
+`getfile` functions exposed by `cinspect`, to inspect your objects.
+
 ### Indexing your sources
 
-The package doesn't yet bundle any indexes, and you will need to run the
-indexer on your sources to index them. (In future, version specific indexes
-could be packaged, a la pry-doc).
+If you want to generate your own indexes instead of using the ones available
+[here](https://github.com/punchagan/cinspect-data), you will need to run the
+indexer.
 
 The indexer is exposed as the `cinspect-index` command.  You can run it as follows,
 
@@ -69,12 +84,9 @@ work, you will have to make sure that
 2. You pass-in the include dirs that the project you are indexing needs, to
 compile.
 
-The indexes are currently saved at `~/.index.json`.  Once you have created the
-indexes, you can use the `getsource` or `getfile` functions exposed by
-`cinspect`, to inspect your objects.
-
-The version of the source code being indexed is by default assumed to be the
-same as the version of the Python being run. Use the `--version` flag to change
+The indexes are currently saved at `~/.cinspect/index-<version>.json`.  The
+version of the source code being indexed is by default assumed to be the same
+as the version of the Python being run. Use the `--version` flag to change
 this, if required.
 
 ### IPython monkey-patch startup script.

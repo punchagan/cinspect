@@ -21,18 +21,19 @@ packages = [
     'cinspect.tests',
 ]
 package_data = {'cinspect.tests': ['data/*.py']}
-entry_points = {}
+entry_points = {
+    "console_scripts": [
+         "cinspect-download = cinspect.index.download:main",
+    ],
+}
 
 if sys.version_info.major == 2:
     packages.extend([
         'cinspect.vendor.clang',
     ])
     package_data['cinspect.tests'] += ['data/*.md', 'data/*.c']
-    entry_points = {
-        "console_scripts": [
-             "cinspect-index = cinspect.index.writer:main",
-        ],
-    }
+    entry_points["console_scripts"].append("cinspect-index = cinspect.index.writer:main")
+
 
 setup(
     name="cinspect",
