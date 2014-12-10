@@ -20,9 +20,7 @@ def get_index_path(version=None, only_existing=False, allow_similar=True):
     """
 
     if version is None:
-        version = '{}.{}.{}'.format(
-            sys.version_info.major, sys.version_info.minor, sys.version_info.micro
-        )
+        version = _get_current_version()
 
     path_ = path = expanduser(join('~/.cinspect', 'index-%s.json' % version))
     if only_existing and not exists(path):
@@ -76,11 +74,11 @@ def _distance(version):
     return key
 
 
-def _get_version(path):
-    v = VERSION_RE.search(basename(path))
-    if v is None:
-        raise RuntimeError('Invalid index name: Should be index-x.y.z.json')
-    return parse_version(v.groups()[0])
+def _get_current_version():
+    version = '{}.{}.{}'.format(
+        sys.version_info.major, sys.version_info.minor, sys.version_info.micro
+    )
+    return version
 
 
 def _get_most_similar(version, names):
@@ -96,3 +94,10 @@ def _get_most_similar(version, names):
         path = names[versions.index(v_min)]
 
     return path
+
+
+def _get_version(path):
+    v = VERSION_RE.search(basename(path))
+    if v is None:
+        raise RuntimeError('Invalid index name: Should be index-x.y.z.json')
+    return parse_version(v.groups()[0])

@@ -32,7 +32,7 @@ import pprint
 import cinspect.vendor.clang.cindex as ci
 
 # Local library
-from .serialize import get_index_path, read_index, write_index
+from .serialize import _get_current_version, get_index_path, read_index, write_index
 from cinspect.clang_utils import can_find_clang_headers, get_libclang_headers
 
 
@@ -392,7 +392,7 @@ def main():
     )
     # fixme: currently, we assume all source code is Python source!
     parser.add_argument(
-        '--version', default='2.7.8', type=str,
+        '--version', default=_get_current_version(), type=str,
         help='version of the source code being indexed'
     )
     parser.add_argument('-c', '--libclang', help='dynamic library location')
