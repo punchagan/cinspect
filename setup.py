@@ -1,11 +1,14 @@
+from distutils.util import convert_path
 import re
 from setuptools import setup
-from distutils.util import convert_path
+import sys
+
 
 def get_version():
     with open(convert_path('cinspect/__init__.py')) as f:
         metadata = dict(re.findall("__([a-z]+)__\s*=\s*'([^']+)'", f.read()))
         return metadata.get('version', '0.1')
+
 
 def get_long_description():
     with open('README.md') as f:
@@ -16,12 +19,17 @@ packages = [
     'cinspect',
     'cinspect.index',
     'cinspect.tests',
-    'cinspect.vendor.clang',
 ]
 
-package_data = {
-    'cinspect.tests': ['data/*.md', 'data/*.c', 'data/*.py'],
-}
+package_data = {'cinspect.tests': ['data/*.py']}
+
+if sys.version_info.major == 2:
+    packages.extend([
+        'cinspect.vendor.clang',
+    ])
+
+    package_data['cinspect.tests'] += ['data/*.md', 'data/*.c']
+
 
 setup(
     name="cinspect",
