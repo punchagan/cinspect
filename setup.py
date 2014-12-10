@@ -20,16 +20,19 @@ packages = [
     'cinspect.index',
     'cinspect.tests',
 ]
-
 package_data = {'cinspect.tests': ['data/*.py']}
+entry_points = {}
 
 if sys.version_info.major == 2:
     packages.extend([
         'cinspect.vendor.clang',
     ])
-
     package_data['cinspect.tests'] += ['data/*.md', 'data/*.c']
-
+    entry_points = {
+        "console_scripts": [
+             "cinspect-index = cinspect.index.writer:main",
+        ],
+    }
 
 setup(
     name="cinspect",
@@ -42,9 +45,5 @@ setup(
     description = "C-source introspection for packages.",
     packages = packages,
     package_data=package_data,
-    entry_points = {
-        "console_scripts": [
-             "cinspect-index = cinspect.index.writer:main",
-        ],
-    },
+    entry_points=entry_points,
 )
