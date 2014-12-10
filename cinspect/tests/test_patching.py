@@ -7,7 +7,7 @@ import unittest
 from cinspect import getfile, getsource
 
 
-class TestHelloModule(unittest.TestCase):
+class TestPatching(unittest.TestCase):
 
     def test_patching_inspect_should_work(self):
         # Given
