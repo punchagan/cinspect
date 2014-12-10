@@ -1,12 +1,16 @@
 from __future__ import absolute_import, print_function
 
+import sys
+import unittest
+if sys.version_info.major > 2:
+    raise unittest.SkipTest('Indexing is only supported in Py2.x')
+
 # Standard library
 import inspect
 from os.path import abspath, dirname, exists, join
 import tempfile
 from shutil import copy, rmtree
 import subprocess
-import unittest
 
 # 3rd-party library
 from nose.plugins.attrib import attr
@@ -179,7 +183,7 @@ class TestPythonInspection(unittest.TestCase):
 
     def _get_builtin_functions(self):
         ns = {}
-        exec 'from __builtin__ import *' in ns
+        exec('from __builtin__ import *', ns)
 
         return [obj for (name, obj) in ns.iteritems() if inspect.isbuiltin(obj)]
 

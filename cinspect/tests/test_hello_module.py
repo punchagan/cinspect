@@ -1,5 +1,10 @@
 from __future__ import absolute_import, print_function
 
+import sys
+import unittest
+if sys.version_info.major > 2:
+    raise unittest.SkipTest('Indexing is only supported in Py2.x')
+
 # Standard library
 from os.path import abspath, dirname, join
 import tempfile
