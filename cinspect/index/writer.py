@@ -16,6 +16,10 @@ any number of times to detect any changes in the file, and re-index them.
 
 from __future__ import absolute_import, print_function
 
+import sys
+if sys.version_info.major > 2:
+    raise RuntimeError('Index writing is only supported in Python 2.x')
+
 # Standard library
 from hashlib import md5
 from os import walk
