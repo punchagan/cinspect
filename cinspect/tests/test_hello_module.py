@@ -21,9 +21,9 @@ class TestHelloModule(unittest.TestCase):
     def setUpClass(cls):
         cls.hello_dir = join(dirname(abspath(__file__)), 'data')
         cls.temp_dir = tempfile.mktemp()
+        cls.index_path = join(cls.temp_dir, 'DB')
         cls._build_hello_module()
         cls._add_hello_to_path()
-        cls._set_reader_db_path()
 
         if sys.version_info.major == 2:
             cls._setup_py_2()
@@ -39,7 +39,7 @@ class TestHelloModule(unittest.TestCase):
         import hello
 
         # When
-        source = getsource(hello.say_hello)
+        source = getsource(hello.say_hello, self.index_path)
 
         # Then
         self.assertEqual(
@@ -51,7 +51,7 @@ class TestHelloModule(unittest.TestCase):
         import hello
 
         # When
-        source = getsource(hello)
+        source = getsource(hello, self.index_path)
 
         # Then
         self.assertEqual(source, self._get_code_from_hello_module())
@@ -92,27 +92,15 @@ class TestHelloModule(unittest.TestCase):
         import os
         from cinspect.index.writer import Writer
         from cinspect.clang_utils import get_libclang_headers
-        os.unlink(cls.db)
+        os.unlink(cls.index_path)
         clang_args = get_libclang_headers() + ['-I%s' % cls.python_headers]
-        writer = Writer(clang_args=clang_args)
+        writer = Writer(cls.index_path, clang_args=clang_args)
         writer.create(cls.temp_dir)
-
-    @classmethod
-    def _set_reader_db_path(cls):
-        import cinspect.index.reader as R
-        cls.db = join(cls.temp_dir, 'DB')
-        R.DEFAULT_PATH = cls.db
-
-    @classmethod
-    def _set_writer_db_path(cls):
-        import cinspect.index.writer as W
-        W.DEFAULT_PATH = cls.db
 
     @classmethod
     def _setup_py_2(cls):
         import sysconfig
         cls.python_headers = sysconfig.get_config_var('INCLUDEPY')
-        cls._set_writer_db_path()
         cls._index_hello_module()
 
 

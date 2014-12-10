@@ -10,7 +10,7 @@ from os.path import abspath, exists
 from .._types import (
     BuiltinFunction, BuiltinMethod, MethodDescriptor, Module, Type
 )
-from .serialize import DEFAULT_PATH, read_index
+from .serialize import get_index_path, read_index
 
 
 class Reader(object):
@@ -18,10 +18,10 @@ class Reader(object):
 
     #### 'Object' protocol ####################################################
 
-    def __init__(self, db=None):
-        if db is None:
-            db = DEFAULT_PATH
-        self.db = abspath(db)
+    def __init__(self, index_path=None):
+        if index_path is None:
+            index_path = get_index_path(None, only_existing=True, allow_similar=True)
+        self.index_path = abspath(index_path)
 
     #### 'Reader' protocol ####################################################
 
@@ -42,10 +42,10 @@ class Reader(object):
     def _get_data(self, obj):
         """ Get the data for the given object. """
 
-        if not exists(self.db):
-            raise OSError('Index data not found at %s' % self.db)
+        if not exists(self.index_path):
+            raise OSError('Index data not found at %s' % self.index_path)
 
-        indexed_data = read_index(self.db)
+        indexed_data = read_index(self.index_path)
 
         name = obj.name
         type_name = obj.type_name

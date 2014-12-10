@@ -35,8 +35,7 @@ class TestPythonInspection(unittest.TestCase):
     def setUpClass(cls):
         cls.temp_dir = tempfile.mkdtemp()
         cls.python_dir = join(cls.temp_dir, 'Python-2.7.8')
-        cls.db = join(cls.temp_dir, 'DB')
-        cls._set_db_path()
+        cls.index_path = join(cls.temp_dir, 'DB')
         cls._get_and_extract_python_sources()
         cls._configure_python()
         cls._index_sources()
@@ -53,7 +52,7 @@ class TestPythonInspection(unittest.TestCase):
 
         for function in functions:
             # When
-            source = getsource(function)
+            source = getsource(function, self.index_path)
 
             # Then
             self.assertIsFunction(source)
@@ -65,7 +64,7 @@ class TestPythonInspection(unittest.TestCase):
 
         for function in functions:
             # When
-            source = getsource(function)
+            source = getsource(function, self.index_path)
             type_name = BuiltinMethod(function).type_name
 
             # Then
@@ -75,7 +74,7 @@ class TestPythonInspection(unittest.TestCase):
         # Given
         for function in self._get_method_descriptors():
             # When
-            source = getsource(function)
+            source = getsource(function, self.index_path)
             try:
                 type_name = MethodDescriptor(function).type_name
             except:
@@ -89,14 +88,14 @@ class TestPythonInspection(unittest.TestCase):
         function = gc.collect
 
         # When/Then
-        self.assertIsFunction(getsource(function))
+        self.assertIsFunction(getsource(function, self.index_path))
 
     def test_should_get_file_for_method_from_any_module(self):
         # Given
         function = gc.collect
 
         # When
-        path = getfile(function)
+        path = getfile(function, self.index_path)
 
         # Then
         self.assertTrue(path.endswith('gcmodule.c'))
@@ -106,7 +105,7 @@ class TestPythonInspection(unittest.TestCase):
         module = gc
 
         # When
-        source = getsource(module)
+        source = getsource(module, self.index_path)
 
         # Then
         self.assertGreaterEqual(len(source.splitlines()), 1)
@@ -117,7 +116,7 @@ class TestPythonInspection(unittest.TestCase):
         module = audioop
 
         # When
-        source = getsource(module)
+        source = getsource(module, self.index_path)
 
         # Then
         self.assertGreaterEqual(len(source.splitlines()), 1)
@@ -130,7 +129,7 @@ class TestPythonInspection(unittest.TestCase):
         # Given
         for t in types:
             # When/Then
-            source = getsource(t)
+            source = getsource(t, self.index_path)
             name = t.__name__
             type_name = name.capitalize() if name != 'str' else 'String'
             self.assertIn('PyTypeObject Py%s_Type' % type_name.capitalize(), source)
@@ -143,7 +142,7 @@ class TestPythonInspection(unittest.TestCase):
         # Given
         for obj in objects:
             # When/Then
-            source = getsource(obj)
+            source = getsource(obj, self.index_path)
             name = type(obj).__name__
             self.assertIn('PyTypeObject Py%s_Type' % name.capitalize(), source)
             self.assertIn('"%s"' % name, source)
@@ -219,14 +218,8 @@ class TestPythonInspection(unittest.TestCase):
             '-I%s' % cls.python_dir,
             '-I%s' % join(cls.python_dir, 'Include')
         ]
-        writer = Writer(clang_args=clang_args)
+        writer = Writer(cls.index_path, clang_args=clang_args)
         writer.create(cls.python_dir)
-
-    @classmethod
-    def _set_db_path(cls):
-        import cinspect.index.reader as R
-        import cinspect.index.writer as W
-        R.DEFAULT_PATH = W.DEFAULT_PATH = cls.db
 
 
 if __name__ == '__main__':

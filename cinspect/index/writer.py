@@ -22,9 +22,9 @@ if sys.version_info.major > 2:
 
 # Standard library
 from hashlib import md5
-from os import walk
+from os import makedirs, walk
 from os.path import (
-    abspath, exists, expanduser, isdir, join, splitext
+    abspath, dirname, exists, expanduser, isdir, join, splitext
 )
 import pprint
 
@@ -32,7 +32,7 @@ import pprint
 import cinspect.vendor.clang.cindex as ci
 
 # Local library
-from .serialize import DEFAULT_PATH, read_index, write_index
+from .serialize import get_index_path, read_index, write_index
 from cinspect.clang_utils import can_find_clang_headers, get_libclang_headers
 
 
@@ -41,17 +41,17 @@ class Writer(object):
 
     #### 'Object' protocol ####################################################
 
-    def __init__(self, db=None, clang_args=None, verbose=False):
-        if db is None:
-            db = DEFAULT_PATH
+    def __init__(self, index_path, clang_args=None, verbose=False):
         if clang_args == None:
             clang_args = []
         if verbose:
             clang_args.insert(0, '-v')
 
         self.clang_args = clang_args
-        self.db = abspath(db)
         self.verbose = verbose
+        self.index_path = abspath(index_path)
+        if not exists(dirname(self.index_path)):
+            makedirs(dirname(self.index_path))
 
     #### 'Writer' protocol ####################################################
 
@@ -69,9 +69,9 @@ class Writer(object):
             self._update_dir_in_index(path)
 
         else:
-            data = read_index(self.db)
+            data = read_index(self.index_path)
             self._update_file_in_index(path, data)
-            write_index(self.db, data)
+            write_index(self.index_path, data)
 
     #### 'Private' protocol ###################################################
 
@@ -363,10 +363,10 @@ class Writer(object):
     def _update_dir_in_index(self, path):
         """ Walks through the directory, and indexes all the files in it. """
 
-        data = read_index(self.db)
+        data = read_index(self.index_path)
         for dirpath, _, filenames in walk(expanduser(path)):
             self._index_files_in_dir(data, dirpath, filenames)
-        write_index(self.db, data)
+        write_index(self.index_path, data)
 
     def _update_file_in_index(self, path, data):
         hashes = data.setdefault('hashes', {})
@@ -390,6 +390,11 @@ def main():
     parser.add_argument(
         '--verbose', action='store_true', help='set for verbose output'
     )
+    # fixme: currently, we assume all source code is Python source!
+    parser.add_argument(
+        '--version', default='2.7.8', type=str,
+        help='version of the source code being indexed'
+    )
     parser.add_argument('-c', '--libclang', help='dynamic library location')
 
     args, clang_args  = parser.parse_known_args()
@@ -402,7 +407,8 @@ def main():
         pprint.pprint(clang_args)
 
     # fixme: auto detect headers based on package?
-    writer = Writer(clang_args=clang_args, verbose=args.verbose)
+    index_path = get_index_path(version=args.version)
+    writer = Writer(index_path=index_path, clang_args=clang_args, verbose=args.verbose)
 
     for path in args.paths:
         writer.create(abspath(expanduser(path)))
