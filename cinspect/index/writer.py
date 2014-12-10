@@ -18,8 +18,9 @@ from __future__ import absolute_import, print_function
 
 # Standard library
 from hashlib import md5
+from os import walk
 from os.path import (
-    abspath, exists, expanduser, isdir, join, splitext, walk
+    abspath, exists, expanduser, isdir, join, splitext
 )
 import pprint
 
@@ -322,7 +323,8 @@ class Writer(object):
         """ Walks through the directory, and indexes all the files in it. """
 
         data = read_index(self.db)
-        walk(expanduser(path), self._index_files_in_dir, data)
+        for dirpath, _, filenames in walk(expanduser(path)):
+            self._index_files_in_dir(data, dirpath, filenames)
         write_index(self.db, data)
 
     def _update_file_in_index(self, path, data):
@@ -338,7 +340,6 @@ class Writer(object):
                 hashes[path] = current_hash
 
 def main():
-    import sys
     import argparse
 
     parser = argparse.ArgumentParser(
