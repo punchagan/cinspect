@@ -156,6 +156,9 @@ class Writer(object):
         elif self._is_py_init_module(cursor):
             modules.update(self._parse_py_init_module(cursor, path))
 
+        elif self._is_py_module_def(cursor):
+            modules.update(self._parse_py_module_def(cursor, path))
+
         else:
             # We don't care about any other types of nodes (yet)
             pass
@@ -183,6 +186,18 @@ class Writer(object):
         children = list(cursor.get_children())
 
         if len(children) > 1 and children[0].displayname == 'PyMethodDef':
+            if children[1].kind == ci.CursorKind.INIT_LIST_EXPR:
+                return True
+
+        return False
+
+    def _is_py_module_def(self, cursor):
+        if cursor.kind != ci.CursorKind.VAR_DECL:
+            return False
+
+        children = list(cursor.get_children())
+
+        if len(children) > 1 and 'PyModuleDef' in children[0].spelling:
             if children[1].kind == ci.CursorKind.INIT_LIST_EXPR:
                 return True
 
@@ -242,6 +257,23 @@ class Writer(object):
 
         return {}
 
+    def _parse_py_module_def(self, cursor, path):
+        value = list(cursor.get_children())[1]
+        definition = self._python_object_from_cursor_by_kind(value)
+        name = definition[1]
+        method_map_name = None if len(definition) < 5 else definition[4]
+        if name is not None and name.startswith('"'):
+            data = {
+                name[1:-1]: {
+                    'source': self._get_code_from_cursor(cursor.translation_unit.cursor),
+                    'path': path,
+                    'method_maps': [method_map_name],
+                }
+            }
+            return data
+
+        return {}
+
     def _parse_py_method_def(self, cursor):
         value = list(cursor.get_children())[1]
         method_map = {}
@@ -262,7 +294,12 @@ class Writer(object):
         children = list(cursor.get_children())
         parsed_definition = self._python_object_from_cursor_by_kind(children[1])
         if parsed_definition is not None and len(parsed_definition) >= 4:
-            name = parsed_definition[3]
+            # PyObject_HEAD_INIT definition changed in Py3
+            if isinstance(parsed_definition[0], list):
+                name = parsed_definition[1]
+            else:
+                name = parsed_definition[3]
+
             # fixme: subclassing and inheriting is not handled, yet.
             references = filter(
                 lambda x: isinstance(x, basestring),
