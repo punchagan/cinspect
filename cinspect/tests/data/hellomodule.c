@@ -21,8 +21,15 @@ static PyMethodDef HelloMethods[] =
      {NULL, NULL, 0, NULL}
 };
 
-PyMODINIT_FUNC
-inithello(void)
-{
-     (void) Py_InitModule("hello", HelloMethods);
+
+#if PY_MAJOR_VERSION >= 3
+PyMODINIT_FUNC PyInit_hello(void){
+  static struct PyModuleDef moduledef = {PyModuleDef_HEAD_INIT, "hello", "Docs", -1, HelloMethods};
+  return PyModule_Create(&moduledef);
 }
+#else
+PyMODINIT_FUNC inithello(void)
+{
+  (void) Py_InitModule("hello", HelloMethods);
+}
+#endif
