@@ -1,8 +1,12 @@
-import urllib
-import os
+from __future__ import absolute_import, print_function
+
 import sys
-f = urllib.urlopen('http://ballingt.com/assets/.index.json')
-dest = open(os.path.expanduser('~/.index.json'), 'w')
+if sys.version_info.major > 2:
+    from urllib.request import urlretrieve
+else:
+    from urllib import urlretrieve
+import os
+
 
 def spin(every, state=['|', 0]):
     if state[1] >= every:
@@ -14,6 +18,7 @@ def spin(every, state=['|', 0]):
         sys.stderr.flush()
     state[1] += 1
 
-for line in f:
-    spin(400)
-    dest.write(line)
+reporthook = lambda x, y, z: spin(5)
+
+dest = os.path.expanduser('~/.index.json')
+urlretrieve('http://ballingt.com/assets/.index.json', dest, reporthook)
