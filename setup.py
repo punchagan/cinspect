@@ -1,15 +1,15 @@
+import re
 from setuptools import setup
 from distutils.util import convert_path
 
-# Additional keyword arguments for setup
-kwargs = {}
+def get_version():
+    with open(convert_path('cinspect/__init__.py')) as f:
+        metadata = dict(re.findall("__([a-z]+)__\s*=\s*'([^']+)'", f.read()))
+        return metadata.get('version', '0.1')
 
-d = {}
-execfile(convert_path('cinspect/__init__.py'), d)
-kwargs['version'] = d['__version__']
-
-with open('README.md') as f:
-    kwargs['long_description'] = f.read()
+def get_long_description():
+    with open('README.md') as f:
+        return f.read()
 
 
 packages = [
@@ -27,6 +27,8 @@ setup(
     name="cinspect",
     author="Puneeth Chaganti",
     author_email="punchagan@muse-amuse.in",
+    version=get_version(),
+    long_description=get_long_description(),
     url = "https://github.com/punchagan/cinspect",
     license="BSD",
     description = "C-source introspection for packages.",
@@ -37,5 +39,4 @@ setup(
              "cinspect-index = cinspect.index.writer:main",
         ],
     },
-    **kwargs
 )
