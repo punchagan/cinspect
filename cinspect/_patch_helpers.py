@@ -11,6 +11,8 @@ def inspect_restored():
     igetfile = inspect.getfile
     inspect.getsource = _igetsource
     inspect.getfile = _igetfile
-    yield
-    inspect.getsource = igetsource
-    inspect.getfile = igetfile
+    try:
+        yield
+    finally:
+        inspect.getsource = igetsource
+        inspect.getfile = igetfile
