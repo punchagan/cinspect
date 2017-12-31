@@ -5,7 +5,7 @@ cinspect
 "inspection" for Python's builtins and other objects not written in Python.
 
 The project is inspired by pry-doc and tries to generate indexes of the sources
-for C-extensions, which are then used when obects are being inspected.
+for C-extensions, which are then used when objects are being inspected.
 
 ## How it works
 
